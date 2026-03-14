@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SoundScope">
+<title>SoundScope — Ruído Ambiental</title>
+
+<!-- PWA: manifesto + service worker -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  // Registra o service worker assim que o DOM carrega.
+  // O SW é o que faz o app funcionar offline e garante
+  // o contexto seguro (HTTPS) que libera o microfone.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(r => console.log('SW registrado:', r.scope))
+        .catch(e => console.warn('SW falhou:', e));
+    });
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN SYSTEM
+═══════════════════════════════════════════ */
+:root {
+  --bg      : #0d1117;
+  --surf    : #161b22;
+  --surf2   : #1c2333;
+  --border  : #30363d;
+  --green   : #00e5a0;
+  --blue    : #00b4d8;
+  --yellow  : #f7b731;
+  --red     : #ff4757;
+  --text    : #e6edf3;
+  --muted   : #8b949e;
+  --dim     : #484f58;
+  --mono    : 'Space Mono', monospace;
+  --sans    : 'DM Sans', sans-serif;
+  --r       : 14px;
+  --rs      : 9px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* Previne bounce no iOS */
+  overscroll-behavior: none;
+}
+
+/* Grid sutil no fundo */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,160,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+  margin: 0 auto;
+  padding-bottom: 90px;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER (sticky)
+═══════════════════════════════════════════ */
+.hdr {
+  background: linear-gradient(180deg, #0d1117 0%, #12181f 100%);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  padding: 14px 16px 0;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 2px;
+}
+
+.logo-ic {
+  width: 32px; height: 32px;
+  background: var(--green);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-ic svg { width: 17px; height: 17px; }
+
+.app-name {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+}
+.app-name b { color: var(--green); font-weight: 700; }
+
+.hdr-row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 10px;
+  gap: 8px;
+}
+
+.app-sub {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .9px;
+  text-transform: uppercase;
+}
+
+/* Pill de status Firebase */
+.fb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border: 1px solid;
+  white-space: nowrap;
+  cursor: default;
+  letter-spacing: .3px;
+}
+.fb-pill.off   { background: rgba(255,71,87,.07);  border-color: rgba(255,71,87,.2);  color: var(--red); }
+.fb-pill.local { background: rgba(247,183,49,.07); border-color: rgba(247,183,49,.2); color: var(--yellow); }
+.fb-pill.on    { background: rgba(0,229,160,.08);  border-color: rgba(0,229,160,.22); color: var(--green); }
+.fb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.fb-pill.on .fb-dot { animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  /* Área de toque grande no mobile */
+  min-height: 44px;
+}
+.tab:hover   { color: var(--text); }
+.tab.active  { color: var(--green); border-bottom-color: var(--green); }
+
+.n-chip {
+  display: inline-block;
+  background: rgba(0,229,160,.15);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════════
+   SECTIONS
+═══════════════════════════════════════════ */
+.sec { display: none; padding: 16px; }
+.sec.active { display: block; }
+
+/* ═══════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════ */
+.card {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 13px;
+}
+.card-ic {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.card-t {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ═══════════════════════════════════════════
+   BANNERS DE AVISO
+═══════════════════════════════════════════ */
+.bn {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: var(--rs);
+  padding: 11px 13px;
+  margin-bottom: 10px;
+  border: 1px solid;
+}
+.bn p { font-size: 13px; line-height: 1.65; }
+.bn-r { background: rgba(255,71,87,.07);  border-color: rgba(255,71,87,.22);  } .bn-r p { color: #ff7985; }
+.bn-b { background: rgba(0,180,216,.07);  border-color: rgba(0,180,216,.22);  } .bn-b p { color: #4cc9f0; }
+.bn-y { background: rgba(247,183,49,.07); border-color: rgba(247,183,49,.22); } .bn-y p { color: var(--yellow); }
+.bn-g { background: rgba(0,229,160,.06);  border-color: rgba(0,229,160,.2);   } .bn-g p { color: var(--green); }
+.bn-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; line-height: 1; }
+
+/* ═══════════════════════════════════════════
+   FORMULÁRIOS
+═══════════════════════════════════════════ */
+.fg { margin-bottom: 11px; }
+
+.lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.inp, .sel, .ta {
+  width: 100%;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px; /* 16px evita zoom no iOS ao focar */
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color .2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.inp:focus, .sel:focus, .ta:focus { border-color: var(--green); }
+.sel {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+.ta { resize: vertical; min-height: 68px; }
+.fr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.inp::placeholder, .ta::placeholder { color: var(--dim); }
+
+/* ═══════════════════════════════════════════
+   BOTÕES — grandes para toque
+═══════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  /* Altura mínima de 48px (Google Material guideline) */
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: var(--rs);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  transition: all .18s;
+  width: 100%;
+  margin-top: 7px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+
+.bp  { background: var(--green); color: #000; font-weight: 700; }
+.bp:hover { background: #00ffb3; }
+
+.bs  { background: var(--surf2); color: var(--text); border: 1px solid var(--border); }
+.bs:hover { border-color: var(--green); color: var(--green); }
+
+.bd  { background: rgba(255,71,87,.1); color: var(--red); border: 1px solid rgba(255,71,87,.28); }
+.bd:hover { background: rgba(255,71,87,.18); }
+
+.bst { background: rgba(255,71,87,.1); color: var(--red); border: 1px solid rgba(255,71,87,.3); }
+.bst:hover { background: rgba(255,71,87,.2); }
+
+.bb  { background: rgba(0,180,216,.1); color: var(--blue); border: 1px solid rgba(0,180,216,.28); }
+.bb:hover { background: rgba(0,180,216,.18); }
+
+.by  { background: rgba(247,183,49,.08); color: var(--yellow); border: 1px solid rgba(247,183,49,.28); }
+.by:hover { background: rgba(247,183,49,.15); }
+
+.brow { display: flex; gap: 8px; }
+.brow .btn { margin-top: 0; }
+.bh { width: 50%; }
+
+/* ═══════════════════════════════════════════
+   MEDIDOR AO VIVO
+═══════════════════════════════════════════ */
+.meter {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 16px 16px;
+  margin: 12px 0;
+  text-align: center;
+}
+
+/* Linha de status */
+.s-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.s-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex-shrink: 0;
+  transition: background .3s;
+}
+.s-dot.rec { background: var(--red); animation: pulse-dot 1s infinite; }
+.s-dot.ok  { background: var(--green); }
+@keyframes pulse-dot {
+  0%,100% { box-shadow: 0 0 0 3px rgba(255,71,87,.2); }
+  50%      { box-shadow: 0 0 0 7px rgba(255,71,87,.06); }
+}
+.s-txt {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .4px;
+}
+
+/* Número grande */
+.m-val {
+  font-family: var(--mono);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--green);
+  letter-spacing: -3px;
+  transition: color .25s;
+  /* Evita salto de layout */
+  min-height: 64px;
+}
+.m-unit {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: .3px;
+}
+
+/* Barra de nível */
+.m-bar-wrap {
+  margin: 14px 0 10px;
+  background: var(--surf);
+  border-radius: 100px;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.m-bar {
+  height: 100%;
+  border-radius: 100px;
+  width: 0%;
+  transition: width .1s linear;
+  /* Gradiente verde → amarelo → vermelho */
+  background: linear-gradient(90deg, #00e5a0 0%, #f7b731 60%, #ff4757 100%);
+}
+
+/* 4 caixinhas de estatística */
+.m-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-top: 10px;
+}
+.m-sb {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 9px 6px;
+  text-align: center;
+}
+.m-sl {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 3px;
+}
+.m-sv {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════════
+   PAINEL NIOSH — destaque especial
+═══════════════════════════════════════════ */
+.niosh-panel {
+  background: linear-gradient(135deg, rgba(0,180,216,.08) 0%, rgba(0,229,160,.05) 100%);
+  border: 1px solid rgba(0,180,216,.3);
+  border-radius: var(--r);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.niosh-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.niosh-steps {
+  list-style: none;
+  counter-reset: ns;
+  margin-bottom: 12px;
+}
+.niosh-steps li {
+  counter-increment: ns;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.niosh-steps li::before {
+  content: counter(ns);
+  width: 20px; height: 20px;
+  min-width: 20px;
+  background: rgba(0,180,216,.15);
+  border: 1px solid rgba(0,180,216,.3);
+  color: var(--blue);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+
+/* Campos de entrada do NIOSH — destaque */
+.niosh-inputs {
+  background: var(--surf2);
+  border: 1px solid rgba(0,229,160,.2);
+  border-radius: var(--rs);
+  padding: 14px;
+  margin-top: 10px;
+}
+
+.niosh-inputs .lbl { color: var(--green); }
+
+/* Número grande de entrada manual */
+.big-input-wrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+.big-input {
+  width: 100%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 700;
+  text-align: center;
+  padding: 14px;
+  outline: none;
+  transition: border-color .2s;
+  -webkit-appearance: none;
+  appearance: none;
+  letter-spacing: -1px;
+}
+.big-input:focus { border-color: var(--green); }
+.big-input::placeholder { color: var(--dim); font-size: 24px; letter-spacing: 0; }
+.big-input-unit {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* Toggle entre modos */
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 3px;
+  margin-bottom: 14px;
+}
+.mode-btn {
+  padding: 10px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all .18s;
+  text-align: center;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.mode-btn.active {
+  background: var(--surf);
+  color: var(--green);
+  border: 1px solid rgba(0,229,160,.25);
+}
+
+/* ═══════════════════════════════════════════
+   TABELA DE DADOS
+═══════════════════════════════════════════ */
+.tbl-wrap {
+  overflow-x: auto;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 540px;
+}
+
+thead tr {
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+}
+thead th {
+  padding: 9px 10px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,.02); }
+
+tbody td {
+  padding: 9px 10px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.env-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.source-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.src-mic   { background: rgba(0,229,160,.12); color: var(--green); }
+.src-niosh { background: rgba(0,180,216,.12); color: var(--blue); }
+.src-man   { background: rgba(247,183,49,.12); color: var(--yellow); }
+
+.val-g { color: var(--green); font-family: var(--mono); font-weight: 700; }
+
+.bico {
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  transition: all .15s;
+  min-height: 32px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bico:hover { color: var(--text); border-color: var(--muted); }
+.bico.del:hover { color: var(--red); border-color: var(--red); }
+
+.empty-st {
+  text-align: center;
+  padding: 32px 16px;
+}
+.empty-st .ei { font-size: 36px; margin-bottom: 8px; }
+.empty-st p { font-size: 13px; color: var(--dim); }
+
+/* ═══════════════════════════════════════════
+   ANÁLISE
+═══════════════════════════════════════════ */
+.stats-grid { display: grid; gap: 8px; }
+
+.s-row-an {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 11px 13px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.s-left { display: flex; align-items: center; gap: 9px; }
+.c-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.s-name { font-size: 14px; font-weight: 500; }
+.s-sub  { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.s-vals { display: flex; gap: 12px; }
+.sv2 .v { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--green); }
+.sv2 .l { font-family: var(--mono); font-size: 9px; color: var(--dim); display: block; letter-spacing: .4px; text-transform: uppercase; }
+
+.chart-wrap { position: relative; width: 100%; height: 220px; margin-top: 8px; }
+
+.interp-box {
+  background: rgba(0,229,160,.05);
+  border: 1px solid rgba(0,229,160,.18);
+  border-radius: var(--r);
+  padding: 14px;
+}
+.interp-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 8px;
+  display: block;
+}
+.interp-box p { font-size: 14px; line-height: 1.75; }
+
+/* ═══════════════════════════════════════════
+   INTRO
+═══════════════════════════════════════════ */
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,229,160,.09); border: 1px solid rgba(0,229,160,.22);
+  color: var(--green); font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 20px; margin-bottom: 12px;
+}
+.hero-title { font-family: var(--mono); font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+.hero-title span { color: var(--green); }
+.q-block {
+  background: var(--surf2); border-left: 3px solid var(--blue);
+  border-radius: 0 var(--rs) var(--rs) 0; padding: 11px 13px; margin: 12px 0;
+}
+.q-lbl { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+.q-block p { font-size: 13px; font-style: italic; color: var(--text); }
+.h-block {
+  background: var(--surf2); border-left: 3px solid var(--yellow);
+  border-radius: 0 var(--rs) var(--rs) 0; padding: 11px 13px; margin: 12px 0;
+}
+.h-lbl { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--yellow); margin-bottom: 4px; }
+.h-block p { font-size: 13px; color: var(--text); }
+
+.steps { list-style: none; counter-reset: s; }
+.steps li {
+  counter-increment: s;
+  display: flex; gap: 9px; align-items: flex-start;
+  margin-bottom: 9px; font-size: 13px; color: var(--muted);
+}
+.steps li::before {
+  content: counter(s);
+  width: 20px; height: 20px; min-width: 20px;
+  background: var(--surf2); border: 1px solid var(--green);
+  color: var(--green); font-family: var(--mono); font-size: 9px; font-weight: 700;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+
+.it { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+/* ═══════════════════════════════════════════
+   FIREBASE CONFIG
+═══════════════════════════════════════════ */
+.fb-config-box {
+  background: rgba(247,183,49,.05);
+  border: 1px solid rgba(247,183,49,.22);
+  border-radius: var(--r);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.fb-cfg-title {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase; color: var(--yellow);
+  margin-bottom: 11px;
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(90px);
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 11px 18px;
+  font-family: var(--mono);
+  font-size: 12px; font-weight: 700;
+  color: var(--text);
+  z-index: 9999;
+  transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+  white-space: nowrap;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok   { border-color: var(--green);  color: var(--green); }
+.toast.err  { border-color: var(--red);    color: var(--red); }
+.toast.info { border-color: var(--blue);   color: var(--blue); }
+
+/* ═══════════════════════════════════════════
+   MODAL EDIÇÃO
+═══════════════════════════════════════════ */
+.mov {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.8);
+  z-index: 1000;
+  align-items: flex-end; /* Sobe do rodapé — melhor UX mobile */
+  justify-content: center;
+  padding: 0;
+}
+.mov.open { display: flex; }
+
+.modal {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--r) var(--r) 0 0; /* Arredondado só no topo */
+  padding: 20px 18px 32px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 92vh;
+  overflow-y: auto;
+  animation: slide-up .25s ease;
+}
+@keyframes slide-up { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Handle de arraste visual */
+.modal::before {
+  content: '';
+  display: block;
+  width: 40px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+
+.modal-t {
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase;
+  color: var(--green); margin-bottom: 14px;
+}
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+.footer {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: .4px;
+  padding: 0 16px 16px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═══ HEADER ════════════════════════════════ -->
+<header class="hdr">
+  <div class="logo-row">
+    <div class="logo-ic">
+      <svg viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="8"  width="2" height="4"  rx="1" fill="#000"/>
+        <rect x="7" y="5"  width="2" height="10" rx="1" fill="#000"/>
+        <rect x="11" y="3" width="2" height="14" rx="1" fill="#000"/>
+        <rect x="15" y="6" width="2" height="8"  rx="1" fill="#000"/>
+      </svg>
+    </div>
+    <div class="app-name">Sound<b>Scope</b></div>
+  </div>
+
+  <div class="hdr-row2">
+    <div class="app-sub">Ruído Ambiental · Bio</div>
+    <div class="fb-pill off" id="fb-pill">
+      <div class="fb-dot"></div>
+      <span id="fb-lbl">Sem banco</span>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" onclick="goTab('intro')">Início</button>
+    <button class="tab" onclick="goTab('id')">Aluno</button>
+    <button class="tab" onclick="goTab('col')">Coletar</button>
+    <button class="tab" onclick="goTab('data')">Dados<span class="n-chip" id="chip">0</span></button>
+    <button class="tab" onclick="goTab('an')">Análise</button>
+    <button class="tab" onclick="goTab('exp')">Exportar</button>
+  </nav>
+</header>
+
+
+<!-- ═══════════════════════════════════════════
+     INÍCIO
+═══════════════════════════════════════════ -->
+<section class="sec active" id="sec-intro">
+
+  <div class="card">
+    <div class="hero-badge">🔬 Biologia Experimental</div>
+    <h1 class="hero-title">Ruído em<br><span>Microambientes</span></h1>
+    <p class="it">Plataforma para coleta colaborativa de nível sonoro. Todos os grupos coletam, os dados se integram em tempo real.</p>
+
+    <div class="q-block">
+      <div class="q-lbl">Pergunta Científica</div>
+      <p>"Ambientes com maior circulação de pessoas apresentam níveis médios de ruído mais elevados do que ambientes mais controlados?"</p>
+    </div>
+    <div class="h-block">
+      <div class="h-lbl">Hipótese</div>
+      <p>Ambientes com maior fluxo de pessoas (corredor, rua) apresentam níveis médios de ruído superiores aos de ambientes mais silenciosos (quarto, sala vazia).</p>
+    </div>
+  </div>
+
+  <!-- COMO MEDIR — explica as duas formas -->
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(0,180,216,.12)">📱</div>
+      <div class="card-t">Como Medir o Ruído</div>
+    </div>
+
+    <p class="it" style="margin-bottom:12px">Há <strong style="color:var(--text)">duas formas</strong> de obter os valores de dB. Ambas funcionam nesta plataforma:</p>
+
+    <!-- Opção 1 NIOSH -->
+    <div class="bn bn-b" style="margin-bottom:8px">
+      <div class="bn-ico">📲</div>
+      <div>
+        <p><strong>Opção 1 — App NIOSH (recomendado)</strong><br>
+        Baixe o <strong>NIOSH SLM</strong> (gratuito, Android/iOS). Faça a medição nele, anote os valores e insira aqui manualmente. Os dados do NIOSH são dB(A) calibrados segundo norma federal americana.</p>
+      </div>
+    </div>
+
+    <!-- Opção 2 microfone -->
+    <div class="bn bn-g">
+      <div class="bn-ico">🎙️</div>
+      <div>
+        <p><strong>Opção 2 — Microfone desta plataforma</strong><br>
+        Se a página estiver em <strong>HTTPS</strong> (ex: GitHub Pages), o microfone do celular captura o sinal automaticamente. Os valores são <em>dB estimados</em> (não calibrados) — bons para comparação relativa.</p>
+      </div>
+    </div>
+
+    <div class="bn bn-y" style="margin-top:4px">
+      <div class="bn-ico">⚠️</div>
+      <p>Independente do método, os alunos de um mesmo grupo devem usar <strong>o mesmo aparelho e método</strong> em todas as réplicas, para garantir consistência na comparação.</p>
+    </div>
+  </div>
+
+  <!-- FIREBASE -->
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(247,183,49,.12)">🔥</div>
+      <div class="card-t">Integração dos Dados</div>
+    </div>
+    <p class="it" style="margin-bottom:12px">Configure o Firebase para que os dados de <strong>todos os grupos</strong> fiquem disponíveis em tempo real para o professor e para análise coletiva.</p>
+
+    <div class="fb-config-box">
+      <div class="fb-cfg-title">⚙️ Credenciais Firebase</div>
+      <div class="fr" style="margin-bottom:9px">
+        <div class="fg" style="margin:0"><label class="lbl">API Key</label><input class="inp" id="fb-k" placeholder="AIzaSy..." oninput="saveFb()"></div>
+        <div class="fg" style="margin:0"><label class="lbl">Project ID</label><input class="inp" id="fb-p" placeholder="meu-projeto" oninput="saveFb()"></div>
+      </div>
+      <div class="fg"><label class="lbl">Database URL</label><input class="inp" id="fb-u" placeholder="https://meu-projeto-default-rtdb.firebaseio.com" oninput="saveFb()"></div>
+      <button class="btn by" onclick="connectFb()" style="margin-top:9px">🔗 Conectar Firebase</button>
+    </div>
+
+    <p class="it" style="color:var(--dim);font-size:12px">Sem Firebase: a plataforma salva no aparelho. Exporte o CSV de cada grupo e una no Excel.</p>
+  </div>
+
+  <!-- PROTOCOLO -->
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(0,229,160,.12)">📋</div>
+      <div class="card-t">Protocolo Resumido</div>
+    </div>
+    <ol class="steps">
+      <li>Preencha seus dados na aba <strong>Aluno</strong>.</li>
+      <li>Na aba <strong>Coletar</strong>: escolha o ambiente e o nº da réplica.</li>
+      <li>Meça com o <strong>app NIOSH</strong> (ou microfone desta página via HTTPS).</li>
+      <li>Insira os valores e clique em <strong>Salvar Coleta</strong>.</li>
+      <li>Repita para cada réplica e ambiente do seu grupo.</li>
+      <li>A aba <strong>Análise</strong> mostra os resultados de todos automaticamente.</li>
+    </ol>
+  </div>
+
+  <button class="btn bp" onclick="goTab('id')">➜ Começar</button>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     ALUNO
+═══════════════════════════════════════════ -->
+<section class="sec" id="sec-id">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(0,229,160,.12)">👤</div>
+      <div class="card-t">Identificação</div>
+    </div>
+
+    <div class="fg">
+      <label class="lbl">Nome do Aluno</label>
+      <input class="inp" id="id-name" placeholder="Seu nome completo" oninput="saveId()">
+    </div>
+    <div class="fr">
+      <div class="fg">
+        <label class="lbl">Turma</label>
+        <input class="inp" id="id-class" placeholder="BIO-2024A" oninput="saveId()">
+      </div>
+      <div class="fg">
+        <label class="lbl">Grupo</label>
+        <input class="inp" id="id-group" placeholder="G3" oninput="saveId()">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="lbl">Data</label>
+      <input class="inp" id="id-date" type="date" oninput="saveId()">
+    </div>
+    <div class="fg">
+      <label class="lbl">Observações Gerais</label>
+      <textarea class="ta" id="id-obs" placeholder="Ex: coleta em dia útil, período da manhã..." oninput="saveId()"></textarea>
+    </div>
+    <button class="btn bp" onclick="goTab('col')">➜ Ir para Coleta</button>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     COLETAR
+═══════════════════════════════════════════ -->
+<section class="sec" id="sec-col">
+
+  <!-- Configuração -->
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(0,229,160,.12)">⚙️</div>
+      <div class="card-t">Configurar Coleta</div>
+    </div>
+
+    <div class="fg">
+      <label class="lbl">Ambiente</label>
+      <select class="sel" id="col-env">
+        <option value="">— Selecione o ambiente —</option>
+        <option>Quarto</option>
+        <option>Sala de Aula</option>
+        <option>Corredor</option>
+        <option>Rua</option>
+        <option>Biblioteca</option>
+        <option>Laboratório</option>
+        <option>Refeitório</option>
+        <option>Área Externa</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div class="fr">
+      <div class="fg">
+        <label class="lbl">Nº da Réplica</label>
+        <input class="inp" id="col-rep" type="number" min="1" value="1">
+      </div>
+      <div class="fg">
+        <label class="lbl">Duração (s)</label>
+        <input class="inp" id="col-dur" type="number" min="5" max="300" value="30">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="lbl">Obs. desta coleta</label>
+      <input class="inp" id="col-obs" placeholder="Ex: janelas abertas, horário de pico...">
+    </div>
+  </div>
+
+  <!-- TOGGLE DE MODO -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode-niosh-btn" onclick="setMode('niosh')">
+      📲 App NIOSH
+    </button>
+    <button class="mode-btn" id="mode-mic-btn" onclick="setMode('mic')">
+      🎙️ Microfone
+    </button>
+  </div>
+
+  <!-- ── MODO NIOSH ── -->
+  <div id="panel-niosh">
+    <div class="niosh-panel">
+      <div class="niosh-title">
+        📲 Coleta via NIOSH Sound Level Meter
+      </div>
+      <ul class="niosh-steps">
+        <li>Abra o app <strong>NIOSH SLM</strong> no seu celular (gratuito na Play Store / App Store)</li>
+        <li>Segure o celular a ~1 metro de altura, microfone apontado para o ambiente</li>
+        <li>Aguarde a duração definida acima (~30 segundos)</li>
+        <li>Anote os valores de <strong>Lavg (média), Lmin e Lmax</strong> exibidos no app</li>
+        <li>Insira abaixo e clique em <strong>Salvar Coleta</strong></li>
+      </ul>
+
+      <div class="niosh-inputs">
+        <label class="lbl">Média — Lavg (dB)</label>
+        <div class="big-input-wrap">
+          <input class="big-input" id="n-mean" type="number" step="0.1" min="0" max="150" placeholder="52.4" inputmode="decimal">
+          <span class="big-input-unit">dB(A)</span>
+        </div>
+
+        <div class="fr">
+          <div class="fg" style="margin:0">
+            <label class="lbl">Mínimo — Lmin</label>
+            <input class="inp" id="n-min" type="number" step="0.1" placeholder="44.0" inputmode="decimal">
+          </div>
+          <div class="fg" style="margin:0">
+            <label class="lbl">Máximo — Lmax</label>
+            <input class="inp" id="n-max" type="number" step="0.1" placeholder="68.5" inputmode="decimal">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn bp" onclick="saveNiosh()">💾 Salvar Coleta (NIOSH)</button>
+  </div>
+
+  <!-- ── MODO MICROFONE ── -->
+  <div id="panel-mic" style="display:none">
+
+    <!-- Aviso HTTPS -->
+    <div class="bn bn-b" id="https-warn" style="display:none">
+      <div class="bn-ico">🔒</div>
+      <p>O microfone exige <strong>HTTPS</strong>. Se estiver em <em>file://</em> ou HTTP, use o modo NIOSH. Hospede no GitHub Pages para ativar o microfone.</p>
+    </div>
+
+    <!-- Medidor ao vivo -->
+    <div class="meter">
+      <div class="s-row">
+        <div class="s-dot" id="sdot"></div>
+        <div class="s-txt" id="stxt">Aguardando início</div>
+      </div>
+      <div class="m-val" id="mval">--</div>
+      <div class="m-unit">dB estimado (amplitude RMS — não calibrado)</div>
+      <div class="m-bar-wrap"><div class="m-bar" id="mbar"></div></div>
+      <div class="m-stats">
+        <div class="m-sb"><div class="m-sl">Média</div><div class="m-sv" id="smean">--</div></div>
+        <div class="m-sb"><div class="m-sl">Mín</div><div class="m-sv" id="smin">--</div></div>
+        <div class="m-sb"><div class="m-sl">Máx</div><div class="m-sv" id="smax">--</div></div>
+        <div class="m-sb"><div class="m-sl">Tempo</div><div class="m-sv" id="stime">0s</div></div>
+      </div>
+    </div>
+
+    <div class="brow" style="margin-bottom:8px">
+      <button class="btn bp bh" id="btn-start" onclick="startMic()">▶ Iniciar</button>
+      <button class="btn bst bh" id="btn-stop" onclick="stopMic()" disabled>■ Parar</button>
+    </div>
+    <button class="btn bs" id="btn-save-mic" onclick="saveMic()" disabled>💾 Salvar Coleta (Microfone)</button>
+
+    <div class="bn bn-y" style="margin-top:10px">
+      <div class="bn-ico">⚠️</div>
+      <p>Valores são <strong>estimativas</strong> baseadas na amplitude do microfone, não em dB(A) calibrados. Para dados comparáveis entre aparelhos, prefira o <strong>app NIOSH</strong>.</p>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     DADOS
+═══════════════════════════════════════════ -->
+<section class="sec" id="sec-data">
+  <div class="card">
+    <div class="card-h">
+      <div class="card-ic" style="background:rgba(0,229,160,.12)">📊</div>
+      <div class="card-t">Dados Brutos</div>
+    </div>
+
+    <div class="fr" style="margin-bottom:11px">
+      <div class="fg" style="margin:0">
+        <label class="lbl">Filtrar Turma</label>
+        <input class="inp" id="f-cls" placeholder="Todas" oninput="renderTable()">
+      </div>
+      <div class="fg" style="margin:0">
+        <label class="lbl">Filtrar Ambiente</label>
+        <input class="inp" id="f-env" placeholder="Todos" oninput="renderTable()">
+      </div>
+    </div>
+
+    <div id="tbl-empty" class="empty-st">
+      <div class="ei">📂</div>
+      <p>Nenhuma coleta ainda.<br>Vá para a aba <strong>Coletar</strong>.</p>
+    </div>
+
+    <div class="tbl-wrap" id="tbl-wrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Aluno</th><th>Turma</th><th>Data</th><th>Hr</th>
+            <th>Ambiente</th><th>Rep</th><th>Dur</th>
+            <th>Média</th><th>Mín</th><th>Máx</th>
+            <th>Fonte</th><th>Obs</th><th>⚙</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="btn bd" id="btn-clear" onclick="clearLocal()" style="display:none">🗑️ Limpar Dados Locais</button>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     ANÁLISE
+═══════════════════════════════════════════ -->
+<section class="sec" id="sec-an">
+  <div id="an-empty" class="card">
+    <div class="empty-st"><div class="ei">📈</div><p>Colete dados primeiro.</p></div>
+  </div>
+
+  <div id="an-body" style="display:none">
+
+    <div class="card">
+      <div class="card-h"><div class="card-ic" style="background:rgba(0,229,160,.12)">📐</div><div class="card-t">Estatísticas por Ambiente</div></div>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-ic" style="background:rgba(0,180,216,.12)">📊</div><div class="card-t">Média por Ambiente</div></div>
+      <div class="chart-wrap"><canvas id="ch-bar"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-ic" style="background:rgba(247,183,49,.12)">🔵</div><div class="card-t">Dispersão das Réplicas</div></div>
+      <div class="chart-wrap"><canvas id="ch-sc"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-ic" style="background:rgba(255,71,87,.12)">📅</div><div class="card-t">Sequência Temporal</div></div>
+      <div class="chart-wrap"><canvas id="ch-ln"></canvas></div>
+    </div>
+
+    <div class="card" id="card-turmas">
+      <div class="card-h"><div class="card-ic" style="background:rgba(0,229,160,.12)">👥</div><div class="card-t">Comparação por Turma</div></div>
+      <div class="chart-wrap"><canvas id="ch-grp"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-ic" style="background:rgba(0,229,160,.12)">💬</div><div class="card-t">Interpretação Automática</div></div>
+      <div class="interp-box">
+        <span class="interp-lbl">🤖 Gerado automaticamente com base nos seus dados</span>
+        <p id="interp-txt"></p>
+      </div>
+      <div class="bn bn-y" style="margin-top:11px">
+        <div class="bn-ico">⚠️</div>
+        <p>Esta interpretação é automática e <strong>não substitui a análise crítica</strong> do pesquisador.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     EXPORTAR
+═══════════════════════════════════════════ -->
+<section class="sec" id="sec-exp">
+  <div class="card">
+    <div class="card-h"><div class="card-ic" style="background:rgba(0,229,160,.12)">📤</div><div class="card-t">Exportar Dados</div></div>
+    <p class="it" style="margin-bottom:12px">Os arquivos CSV abrem no Excel, Google Sheets e R/Python.</p>
+    <button class="btn bp"  onclick="expRaw()">📥 Dados Brutos (CSV)</button>
+    <button class="btn bs"  onclick="expSummary()">📥 Resumo Estatístico (CSV)</button>
+    <button class="btn by"  onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-ic" style="background:rgba(0,180,216,.12)">📝</div><div class="card-t">Nota Metodológica</div></div>
+    <p class="it" style="line-height:1.8;margin-bottom:10px">
+      <strong style="color:var(--text)">App NIOSH SLM:</strong> produz valores em <strong>dB(A)</strong>, escala ponderada pelo ouvido humano, segundo protocolo NIOSH (National Institute for Occupational Safety and Health, EUA). São valores calibrados no hardware do aparelho. Adequados para comparação absoluta entre ambientes e entre grupos diferentes.
+    </p>
+    <p class="it" style="line-height:1.8;margin-bottom:10px">
+      <strong style="color:var(--text)">Microfone desta plataforma:</strong> valor estimado pela fórmula
+      <code style="font-family:var(--mono);font-size:12px;color:var(--green);background:var(--surf2);padding:2px 6px;border-radius:4px">dB_est = 20×log₁₀(RMS + ε) + 90</code>,
+      onde RMS é a energia média do sinal de áudio bruto. Não é calibrado em dB(A) ou dB SPL. Adequado apenas para comparação relativa dentro do mesmo experimento e aparelho.
+    </p>
+    <div class="bn bn-b">
+      <div class="bn-ico">📌</div>
+      <p>Na coluna <strong>"Fonte"</strong> do CSV, cada registro indica se o dado veio do NIOSH, do microfone ou foi inserido manualmente. Essa distinção é importante ao redigir o relatório.</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<div class="footer">SoundScope v3.0 · Android Chrome · dB(A) via NIOSH ou estimado via microfone</div>
+<div class="toast" id="toast"></div>
+
+<!-- MODAL EDIÇÃO -->
+<div class="mov" id="edit-modal">
+  <div class="modal">
+    <div class="modal-t">✏️ Editar Registro</div>
+    <input type="hidden" id="e-key">
+    <div class="fg"><label class="lbl">Ambiente</label>
+      <select class="sel" id="e-env">
+        <option>Quarto</option><option>Sala de Aula</option><option>Corredor</option>
+        <option>Rua</option><option>Biblioteca</option><option>Laboratório</option>
+        <option>Refeitório</option><option>Área Externa</option><option>Outro</option>
+      </select>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="lbl">Réplica</label><input class="inp" id="e-rep" type="number" min="1"></div>
+      <div class="fg"><label class="lbl">Duração (s)</label><input class="inp" id="e-dur" type="number"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="lbl">Média (dB)</label><input class="inp" id="e-mean" type="number" step="0.1"></div>
+      <div class="fg"><label class="lbl">Mín (dB)</label><input class="inp" id="e-min" type="number" step="0.1"></div>
+    </div>
+    <div class="fg"><label class="lbl">Máx (dB)</label><input class="inp" id="e-max" type="number" step="0.1"></div>
+    <div class="fg"><label class="lbl">Obs.</label><input class="inp" id="e-obs" type="text"></div>
+    <div class="brow" style="margin-top:14px">
+      <button class="btn bp bh" onclick="confirmEdit()">✔ Salvar</button>
+      <button class="btn bs bh" onclick="closeModal()">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════ -->
+<script>
+/* ────────────────────────────────────────────
+   ESTADO
+──────────────────────────────────────────── */
+let recs     = [];       // Cache local dos registros
+let session  = null;     // Sessão de medição ativa (microfone)
+let audioCtx = null;
+let analyser = null;
+let micStr   = null;
+let measInt  = null;
+let timerInt = null;
+let elapsed  = 0;
+let fbReady  = false;
+let curMode  = 'niosh';  // 'niosh' | 'mic'
+let charts   = {};
+
+const COLORS  = ['#00e5a0','#00b4d8','#f7b731','#ff4757','#7bed9f','#eccc68','#a29bfe','#fd79a8','#fdcb6e'];
+const cmap    = {};
+let   cidx    = 0;
+
+/* ────────────────────────────────────────────
+   INIT
+──────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('id-date').value = new Date().toISOString().split('T')[0];
+  loadId();
+  loadFbConf();
+
+  // Detecta HTTPS (necessário para microfone)
+  const isHttps = location.protocol === 'https:' || ['localhost','127.0.0.1'].includes(location.hostname);
+  if (!isHttps) {
+    document.getElementById('https-warn').style.display = 'flex';
+  }
+
+  // Fallback localStorage se Firebase não conectar em 4s
+  setTimeout(() => {
+    if (!fbReady) {
+      const raw = localStorage.getItem('ss_data');
+      recs = raw ? JSON.parse(raw) : [];
+      [...new Set(recs.map(r => r.env))].forEach(envColor);
+      updateChip();
+      setPill('local','Local (sem Firebase)');
+    }
+  }, 4000);
+
+  document.getElementById('edit-modal').addEventListener('click', e => {
+    if (e.target.id === 'edit-modal') closeModal();
+  });
+});
+
+/* ────────────────────────────────────────────
+   FIREBASE — injeção dinâmica
+──────────────────────────────────────────── */
+function saveFb() {
+  localStorage.setItem('ss_fb', JSON.stringify({
+    k: document.getElementById('fb-k').value,
+    p: document.getElementById('fb-p').value,
+    u: document.getElementById('fb-u').value,
+  }));
+}
+
+function loadFbConf() {
+  const raw = localStorage.getItem('ss_fb');
+  if (!raw) return;
+  const c = JSON.parse(raw);
+  document.getElementById('fb-k').value = c.k || '';
+  document.getElementById('fb-p').value = c.p || '';
+  document.getElementById('fb-u').value = c.u || '';
+  if (c.k && c.u) setTimeout(connectFb, 700);
+}
+
+function connectFb() {
+  const key = document.getElementById('fb-k').value.trim();
+  const pid = document.getElementById('fb-p').value.trim();
+  const url = document.getElementById('fb-u').value.trim();
+  if (!key || !url) { toast('Preencha API Key e Database URL', 'err'); return; }
+  saveFb();
+
+  // Remove script anterior
+  document.getElementById('_fb_mod')?.remove();
+
+  const s = document.createElement('script');
+  s.id   = '_fb_mod';
+  s.type = 'module';
+  s.textContent = `
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove, update }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    const existing = getApps().find(a => a.name === 'ss');
+    const app = existing || initializeApp({
+      apiKey:"${key}", authDomain:"${pid}.firebaseapp.com",
+      databaseURL:"${url}", projectId:"${pid}",
+      storageBucket:"${pid}.appspot.com"
+    }, 'ss');
+    const db = getDatabase(app);
+    const r0 = ref(db, 'experimento/coletas');
+    window._fb = {
+      push  : d   => push(r0, d),
+      listen: cb  => onValue(r0, snap => {
+        const arr = [];
+        snap.forEach(c => arr.push({ fbKey: c.key, ...c.val() }));
+        cb(arr);
+      }),
+      del   : k   => remove(ref(db, 'experimento/coletas/' + k)),
+      upd   : (k,d) => update(ref(db, 'experimento/coletas/' + k), d),
+    };
+    window.dispatchEvent(new Event('fb-ok'));
+  `;
+  document.head.appendChild(s);
+
+  window.addEventListener('fb-ok', () => {
+    fbReady = true;
+    setPill('on', 'Firebase online ✓');
+    toast('🔥 Firebase conectado!', 'ok');
+
+    // Escuta em tempo real
+    window._fb.listen(data => {
+      recs = data;
+      [...new Set(recs.map(r => r.env))].forEach(envColor);
+      updateChip();
+      if (document.getElementById('sec-data').classList.contains('active')) renderTable();
+      if (document.getElementById('sec-an').classList.contains('active'))   renderAnalysis();
+    });
+  }, { once: true });
+
+  // Timeout de falha
+  setTimeout(() => {
+    if (!fbReady) toast('⚠️ Falha ao conectar Firebase', 'err');
+  }, 9000);
+}
+
+function setPill(state, label) {
+  const p = document.getElementById('fb-pill');
+  p.className = 'fb-pill ' + state;
+  document.getElementById('fb-lbl').textContent = label;
+}
+
+/* ────────────────────────────────────────────
+   NAVEGAÇÃO
+──────────────────────────────────────────── */
+function goTab(id) {
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  const tabs = ['intro','id','col','data','an','exp'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)]?.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (id === 'data') renderTable();
+  if (id === 'an')   renderAnalysis();
+}
+
+/* ────────────────────────────────────────────
+   TOGGLE MODO (NIOSH / Microfone)
+──────────────────────────────────────────── */
+function setMode(mode) {
+  curMode = mode;
+  document.getElementById('panel-niosh').style.display = mode === 'niosh' ? 'block' : 'none';
+  document.getElementById('panel-mic').style.display   = mode === 'mic'   ? 'block' : 'none';
+  document.getElementById('mode-niosh-btn').classList.toggle('active', mode === 'niosh');
+  document.getElementById('mode-mic-btn').classList.toggle('active',   mode === 'mic');
+}
+
+/* ────────────────────────────────────────────
+   SALVAR VIA NIOSH (entrada manual)
+──────────────────────────────────────────── */
+function saveNiosh() {
+  const env  = document.getElementById('col-env').value;
+  const mean = parseFloat(document.getElementById('n-mean').value);
+  if (!env)       { toast('Selecione um ambiente', 'err'); return; }
+  if (isNaN(mean)){ toast('Informe a média (Lavg)', 'err'); return; }
+
+  const min = parseFloat(document.getElementById('n-min').value);
+  const max = parseFloat(document.getElementById('n-max').value);
+
+  pushRec({
+    mean    : mean,
+    min     : isNaN(min) ? mean : min,
+    max     : isNaN(max) ? mean : max,
+    duration: parseInt(document.getElementById('col-dur').value) || 30,
+    source  : 'NIOSH',
+  });
+
+  // Limpa campos
+  ['n-mean','n-min','n-max'].forEach(id => document.getElementById(id).value = '');
+  incRep();
+}
+
+/* ────────────────────────────────────────────
+   WEB AUDIO API — MICROFONE
+   Cálculo:
+     1. AnalyserNode → array float32 (domínio do tempo, -1 a +1)
+     2. RMS = sqrt( (1/N) * Σ x[i]² )  — energia média
+     3. dB_est = 20 * log10(RMS + 1e-9) + 90
+        offset +90 posiciona em escala ~20–100 dB
+     IMPORTANTE: não é dB(A) calibrado — apenas comparativo.
+──────────────────────────────────────────── */
+async function startMic() {
+  const env = document.getElementById('col-env').value;
+  if (!env) { toast('Selecione um ambiente', 'err'); return; }
+
+  session = { vals: [] };
+  elapsed = 0;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    toast('Microfone não disponível neste contexto', 'err');
+    return;
+  }
+
+  setRecUI(true);
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    micStr  = stream;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+
+    const buf = new Float32Array(analyser.fftSize);
+
+    // Captura a cada 200ms
+    measInt = setInterval(() => {
+      analyser.getFloatTimeDomainData(buf);
+      const rms = Math.sqrt(buf.reduce((s, x) => s + x * x, 0) / buf.length);
+      const db  = Math.max(10, +(20 * Math.log10(rms + 1e-9) + 90).toFixed(1));
+      session.vals.push(db);
+      liveMeter(db);
+    }, 200);
+
+    // Contador de tempo
+    timerInt = setInterval(() => {
+      elapsed++;
+      document.getElementById('stime').textContent = elapsed + 's';
+      const maxDur = parseInt(document.getElementById('col-dur').value) || 30;
+      if (elapsed >= maxDur) { stopMic(); toast('✅ Tempo atingido!', 'ok'); }
+    }, 1000);
+
+    setDot('rec', '● Gravando...');
+
+  } catch (err) {
+    setRecUI(false);
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      toast('🚫 Permissão negada — use modo NIOSH', 'err');
+      alert(
+        'Acesso ao microfone bloqueado.\n\n' +
+        'Causas:\n' +
+        '① Página aberta via file:// (sem servidor)\n' +
+        '② Página em HTTP sem SSL\n' +
+        '③ Permissão negada manualmente\n\n' +
+        'Hospede no GitHub Pages para ativar o microfone,\n' +
+        'ou use o modo NIOSH (app externo).'
+      );
+      setMode('niosh');
+    } else {
+      toast('Erro: ' + err.message, 'err');
+    }
+  }
+}
+
+function stopMic() {
+  clearInterval(measInt);
+  clearInterval(timerInt);
+  measInt = timerInt = null;
+  if (micStr)   { micStr.getTracks().forEach(t => t.stop()); micStr = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  setRecUI(false);
+  if (session?.vals.length > 0) {
+    setDot('ok', '✔ Concluído — salve abaixo');
+    document.getElementById('btn-save-mic').disabled = false;
+  } else {
+    setDot('', 'Nenhum dado capturado');
+  }
+}
+
+function liveMeter(db) {
+  if (!session) return;
+  const v = session.vals;
+  const mean = v.reduce((a, b) => a + b, 0) / v.length;
+  document.getElementById('mval').textContent  = db.toFixed(1);
+  document.getElementById('smean').textContent = mean.toFixed(1);
+  document.getElementById('smin').textContent  = Math.min(...v).toFixed(1);
+  document.getElementById('smax').textContent  = Math.max(...v).toFixed(1);
+  document.getElementById('mbar').style.width  = Math.min(100, ((db - 20) / 80) * 100) + '%';
+  document.getElementById('mval').style.color  = db > 75 ? '#ff4757' : db > 55 ? '#f7b731' : '#00e5a0';
+}
+
+function saveMic() {
+  if (!session?.vals.length) { toast('Sem dados', 'err'); return; }
+  const v    = session.vals;
+  const mean = v.reduce((a, b) => a + b, 0) / v.length;
+  pushRec({
+    mean    : +(mean.toFixed(1)),
+    min     : +(Math.min(...v).toFixed(1)),
+    max     : +(Math.max(...v).toFixed(1)),
+    duration: elapsed,
+    source  : 'microfone',
+  });
+  resetMeter();
+  incRep();
+}
+
+/* ────────────────────────────────────────────
+   PUSH REGISTRO
+──────────────────────────────────────────── */
+function pushRec(extra) {
+  const id  = getId();
+  const now = new Date();
+  const rec = {
+    name   : id.name,
+    class  : id.cls,
+    group  : id.grp,
+    date   : id.date,
+    time   : now.toTimeString().slice(0, 5),
+    env    : document.getElementById('col-env').value,
+    replica: parseInt(document.getElementById('col-rep').value) || 1,
+    obs    : document.getElementById('col-obs').value,
+    savedAt: Date.now(),
+    ...extra,
+  };
+
+  if (fbReady && window._fb) {
+    window._fb.push(rec)
+      .then(() => toast('✅ Salvo e sincronizado!', 'ok'))
+      .catch(e => { toast('Erro Firebase: ' + e.message, 'err'); pushLocal(rec); });
+  } else {
+    pushLocal(rec);
+    toast('✅ Salvo localmente', 'ok');
+  }
+}
+
+function pushLocal(rec) {
+  rec.fbKey = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  recs.push(rec);
+  localStorage.setItem('ss_data', JSON.stringify(recs));
+  updateChip();
+}
+
+/* ────────────────────────────────────────────
+   IDENTIDADE
+──────────────────────────────────────────── */
+function saveId() {
+  localStorage.setItem('ss_id', JSON.stringify({
+    name: document.getElementById('id-name').value,
+    cls : document.getElementById('id-class').value,
+    grp : document.getElementById('id-group').value,
+    date: document.getElementById('id-date').value,
+    obs : document.getElementById('id-obs').value,
+  }));
+}
+function loadId() {
+  const raw = localStorage.getItem('ss_id');
+  if (!raw) return;
+  const d = JSON.parse(raw);
+  document.getElementById('id-name').value  = d.name || '';
+  document.getElementById('id-class').value = d.cls  || '';
+  document.getElementById('id-group').value = d.grp  || '';
+  document.getElementById('id-date').value  = d.date || new Date().toISOString().split('T')[0];
+  document.getElementById('id-obs').value   = d.obs  || '';
+}
+function getId() {
+  return {
+    name: document.getElementById('id-name').value  || '—',
+    cls : document.getElementById('id-class').value || '—',
+    grp : document.getElementById('id-group').value || '—',
+    date: document.getElementById('id-date').value  || new Date().toISOString().split('T')[0],
+  };
+}
+
+/* ────────────────────────────────────────────
+   TABELA
+──────────────────────────────────────────── */
+function renderTable() {
+  const fc = document.getElementById('f-cls').value.toLowerCase();
+  const fe = document.getElementById('f-env').value.toLowerCase();
+  const filtered = recs.filter(r =>
+    (!fc || (r.class || '').toLowerCase().includes(fc)) &&
+    (!fe || (r.env   || '').toLowerCase().includes(fe))
+  );
+
+  const empty = document.getElementById('tbl-empty');
+  const wrap  = document.getElementById('tbl-wrap');
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  if (!filtered.length) { empty.style.display = 'block'; wrap.style.display = 'none'; return; }
+  empty.style.display = 'none'; wrap.style.display = 'block';
+
+  [...filtered].sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0)).forEach(r => {
+    const c   = envColor(r.env);
+    const key = r.fbKey || '';
+    const srcClass = r.source === 'NIOSH' ? 'src-niosh' : r.source === 'microfone' ? 'src-mic' : 'src-man';
+    const tr  = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.name}</td>
+      <td>${r.class}</td>
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td><span class="env-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${r.env}</span></td>
+      <td style="text-align:center">${r.replica}</td>
+      <td style="text-align:center">${r.duration}s</td>
+      <td class="val-g">${r.mean}</td>
+      <td>${r.min}</td>
+      <td>${r.max}</td>
+      <td><span class="source-badge ${srcClass}">${r.source}</span></td>
+      <td style="max-width:80px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${r.obs || '—'}</td>
+      <td>
+        <button class="bico" onclick="openEdit('${key}')">✏️</button>
+        <button class="bico del" onclick="delRec('${key}')">🗑️</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ────────────────────────────────────────────
+   EDIÇÃO
+──────────────────────────────────────────── */
+function openEdit(key) {
+  const r = recs.find(x => x.fbKey === key);
+  if (!r) return;
+  document.getElementById('e-key').value  = key;
+  document.getElementById('e-env').value  = r.env;
+  document.getElementById('e-rep').value  = r.replica;
+  document.getElementById('e-dur').value  = r.duration;
+  document.getElementById('e-mean').value = r.mean;
+  document.getElementById('e-min').value  = r.min;
+  document.getElementById('e-max').value  = r.max;
+  document.getElementById('e-obs').value  = r.obs || '';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function confirmEdit() {
+  const key = document.getElementById('e-key').value;
+  const d = {
+    env     : document.getElementById('e-env').value,
+    replica : +document.getElementById('e-rep').value,
+    duration: +document.getElementById('e-dur').value,
+    mean    : +document.getElementById('e-mean').value,
+    min     : +document.getElementById('e-min').value,
+    max     : +document.getElementById('e-max').value,
+    obs     : document.getElementById('e-obs').value,
+  };
+  if (fbReady && window._fb && !key.startsWith('local_')) {
+    window._fb.upd(key, d)
+      .then(() => { toast('✅ Atualizado', 'ok'); closeModal(); })
+      .catch(e => toast('Erro: ' + e.message, 'err'));
+  } else {
+    const idx = recs.findIndex(x => x.fbKey === key);
+    if (idx !== -1) { Object.assign(recs[idx], d); localStorage.setItem('ss_data', JSON.stringify(recs)); }
+    renderTable(); closeModal(); toast('✅ Atualizado', 'ok');
+  }
+}
+
+function closeModal() { document.getElementById('edit-modal').classList.remove('open'); }
+
+/* ────────────────────────────────────────────
+   EXCLUSÃO
+──────────────────────────────────────────── */
+function delRec(key) {
+  if (!confirm('Excluir esta coleta?')) return;
+  if (fbReady && window._fb && !key.startsWith('local_')) {
+    window._fb.del(key).catch(e => toast('Erro: ' + e.message, 'err'));
+  } else {
+    recs = recs.filter(r => r.fbKey !== key);
+    localStorage.setItem('ss_data', JSON.stringify(recs));
+    updateChip(); renderTable();
+  }
+  toast('🗑️ Removido', 'err');
+}
+
+function clearLocal() {
+  if (!confirm('Apagar todos os dados locais?')) return;
+  if (!confirm('Confirma? Dados no Firebase permanecem intactos.')) return;
+  recs = []; localStorage.removeItem('ss_data');
+  updateChip(); renderTable();
+  toast('🗑️ Dados locais limpos', 'err');
+}
+
+/* ────────────────────────────────────────────
+   ANÁLISE + GRÁFICOS
+──────────────────────────────────────────── */
+function renderAnalysis() {
+  const empty = document.getElementById('an-empty');
+  const body  = document.getElementById('an-body');
+  if (!recs.length) { empty.style.display = 'block'; body.style.display = 'none'; return; }
+  empty.style.display = 'none'; body.style.display = 'block';
+
+  // Agrupa por ambiente
+  const groups = {};
+  recs.forEach(r => { (groups[r.env] = groups[r.env] || []).push(r.mean); });
+
+  const sums = Object.keys(groups).map(env => {
+    const v    = groups[env];
+    const mean = v.reduce((a, b) => a + b, 0) / v.length;
+    const sd   = Math.sqrt(v.reduce((a, x) => a + (x - mean) ** 2, 0) / v.length);
+    return { env, mean: +mean.toFixed(2), sd: +sd.toFixed(2), min: Math.min(...v), max: Math.max(...v), n: v.length, vals: v, color: envColor(env) };
+  });
+
+  // Stats cards
+  const sg = document.getElementById('stats-grid');
+  sg.innerHTML = '';
+  sums.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 's-row-an';
+    d.innerHTML = `
+      <div class="s-left">
+        <div class="c-dot" style="background:${s.color}"></div>
+        <div><div class="s-name">${s.env}</div><div class="s-sub">${s.n} réplica${s.n > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="s-vals">
+        <div class="sv2"><span class="v">${s.mean}</span><span class="l">Média</span></div>
+        <div class="sv2"><span class="v">${s.sd}</span><span class="l">DP</span></div>
+        <div class="sv2"><span class="v">${s.min}</span><span class="l">Mín</span></div>
+        <div class="sv2"><span class="v">${s.max}</span><span class="l">Máx</span></div>
+      </div>`;
+    sg.appendChild(d);
+  });
+
+  buildCharts(sums);
+  buildGroupChart();
+  buildInterp(sums);
+}
+
+// Destrói instância anterior do chart
+function kc(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const scl = () => ({
+  x: { ticks: { color: '#8b949e', font: { family: 'Space Mono', size: 10 } }, grid: { color: '#30363d' } },
+  y: { ticks: { color: '#8b949e', font: { family: 'Space Mono', size: 10 } }, grid: { color: '#30363d' },
+       title: { display: true, text: 'dB', color: '#8b949e', font: { family: 'Space Mono', size: 10 } } }
+});
+
+function buildCharts(sums) {
+  // Barras
+  kc('bar');
+  charts['bar'] = new Chart(document.getElementById('ch-bar').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: sums.map(s => s.env),
+      datasets: [{ data: sums.map(s => s.mean),
+        backgroundColor: sums.map(s => s.color + 'aa'),
+        borderColor: sums.map(s => s.color),
+        borderWidth: 2, borderRadius: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw.toFixed(1)} dB` } } },
+      scales: scl() }
+  });
+
+  // Scatter
+  kc('sc');
+  charts['sc'] = new Chart(document.getElementById('ch-sc').getContext('2d'), {
+    type: 'scatter',
+    data: { datasets: sums.map((s, i) => ({
+      label: s.env,
+      data: s.vals.map((v, j) => ({ x: i + 1, y: v })),
+      backgroundColor: s.color + 'cc', borderColor: s.color,
+      pointRadius: 8, showLine: false
+    })) },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#8b949e', font: { family: 'Space Mono', size: 10 }, boxWidth: 10 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} dB` } }
+      },
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { family: 'Space Mono', size: 10 }, callback: v => sums[v - 1]?.env || v, stepSize: 1 }, grid: { color: '#30363d' } },
+        y: { ticks: { color: '#8b949e', font: { family: 'Space Mono', size: 10 } }, grid: { color: '#30363d' },
+             title: { display: true, text: 'dB', color: '#8b949e', font: { family: 'Space Mono', size: 10 } } }
+      }
+    }
+  });
+
+  // Linha temporal
+  const sorted = [...recs].sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+  kc('ln');
+  charts['ln'] = new Chart(document.getElementById('ch-ln').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sorted.map(r => `${r.env} R${r.replica}`),
+      datasets: [{ data: sorted.map(r => r.mean),
+        backgroundColor: sorted.map(r => envColor(r.env) + '33'),
+        borderColor: '#00e5a0', borderWidth: 2,
+        pointBackgroundColor: sorted.map(r => envColor(r.env)),
+        pointRadius: 5, fill: true, tension: .4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw.toFixed(1)} dB` } } },
+      scales: { ...scl(), x: { ticks: { color: '#8b949e', font: { family: 'Space Mono', size: 9 }, maxRotation: 45 }, grid: { color: '#30363d' } } }
+    }
+  });
+}
+
+function buildGroupChart() {
+  kc('grp');
+  const turmas = [...new Set(recs.map(r => r.class))].filter(Boolean);
+  const envs   = [...new Set(recs.map(r => r.env))];
+  const card   = document.getElementById('card-turmas');
+
+  if (turmas.length < 2) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  charts['grp'] = new Chart(document.getElementById('ch-grp').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: envs,
+      datasets: turmas.map((t, i) => {
+        const c = COLORS[i % COLORS.length];
+        return { label: t, backgroundColor: c + '88', borderColor: c, borderWidth: 2, borderRadius: 4,
+          data: envs.map(env => {
+            const vals = recs.filter(r => r.class === t && r.env === env).map(r => r.mean);
+            return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
+          }) };
+      })
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#8b949e', font: { family: 'Space Mono', size: 10 }, boxWidth: 10 } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.raw?.toFixed(1) || '—'} dB` } }
+      },
+      scales: scl()
+    }
+  });
+}
+
+function buildInterp(sums) {
+  const el = document.getElementById('interp-txt');
+  if (sums.length < 2) { el.textContent = 'Colete dados de pelo menos 2 ambientes.'; return; }
+
+  const sorted   = [...sums].sort((a, b) => b.mean - a.mean);
+  const top      = sorted[0];
+  const bot      = sorted[sorted.length - 1];
+  const diff     = (top.mean - bot.mean).toFixed(1);
+  const turmas   = [...new Set(recs.map(r => r.class))].filter(c => c && c !== '—');
+
+  // Conta fontes para mencionar na interpretação
+  const nNiosh = recs.filter(r => r.source === 'NIOSH').length;
+  const nMic   = recs.filter(r => r.source === 'microfone').length;
+  let sourceNote = '';
+  if (nNiosh > 0 && nMic > 0) sourceNote = ` (${nNiosh} via NIOSH, ${nMic} via microfone)`;
+  else if (nNiosh > 0) sourceNote = ` (todos via NIOSH SLM)`;
+  else if (nMic > 0)   sourceNote = ` (todos via microfone — dB estimados)`;
+
+  let t = `Com base nos <strong>${recs.length} registros</strong>${sourceNote} coletados, `;
+  t += `o ambiente <strong>${top.env}</strong> apresentou o maior nível médio de ruído `;
+  t += `(<strong>${top.mean} dB ± ${top.sd} DP</strong>), `;
+  t += `enquanto <strong>${bot.env}</strong> registrou o menor `;
+  t += `(<strong>${bot.mean} dB ± ${bot.sd} DP</strong>). `;
+  t += `A diferença entre os extremos foi de <strong>${diff} dB</strong>. `;
+
+  if (parseFloat(diff) > 10)
+    t += 'Essa diferença é substancial e consistente com a hipótese de que ambientes com maior circulação de pessoas apresentam maiores níveis sonoros. ';
+  else if (parseFloat(diff) > 5)
+    t += 'Essa diferença é perceptível ao ouvido humano e pode indicar influência da circulação de pessoas sobre a intensidade sonora. ';
+  else
+    t += 'A pequena diferença entre os ambientes pode indicar condições acústicas similares ou variabilidade elevada nas réplicas. ';
+
+  if (turmas.length > 1)
+    t += `<br><br>Os dados integram coletas de <strong>${turmas.length} turmas</strong> (${turmas.join(', ')}). O gráfico de comparação por turma está disponível acima.`;
+
+  t += '<br><br><em>Esta interpretação é automática. Discuta os resultados com seu professor e compare com os limites da OMS (55 dB exterior diurno) e CONAMA 001/90.</em>';
+
+  el.innerHTML = t;
+}
+
+/* ────────────────────────────────────────────
+   EXPORTAÇÃO CSV
+──────────────────────────────────────────── */
+function expRaw() {
+  if (!recs.length) { toast('Sem dados', 'err'); return; }
+  const h = ['Nome','Turma','Grupo','Data','Hora','Ambiente','Réplica','Duração(s)','Média_dB','Mín_dB','Máx_dB','Fonte','Observações'];
+  const r = recs.map(r => [
+    r.name, r.class, r.group, r.date, r.time, r.env,
+    r.replica, r.duration, r.mean, r.min, r.max, r.source,
+    `"${(r.obs || '').replace(/"/g, '""')}"`
+  ]);
+  dlCSV('soundscope_dados_brutos.csv', [h, ...r]);
+  toast('📥 CSV baixado!', 'ok');
+}
+
+function expSummary() {
+  if (!recs.length) { toast('Sem dados', 'err'); return; }
+  const g = {};
+  recs.forEach(r => { (g[r.env] = g[r.env] || []).push(r.mean); });
+  const h = ['Ambiente','N','Média_dB','Desvio_Padrão','Mín_dB','Máx_dB'];
+  const rows = Object.entries(g).map(([env, v]) => {
+    const m = v.reduce((a, b) => a + b, 0) / v.length;
+    return [env, v.length, m.toFixed(2),
+      (Math.sqrt(v.reduce((a, x) => a + (x - m) ** 2, 0) / v.length)).toFixed(2),
+      Math.min(...v), Math.max(...v)];
+  });
+  dlCSV('soundscope_resumo.csv', [h, ...rows]);
+  toast('📥 Resumo exportado!', 'ok');
+}
+
+function dlCSV(name, rows) {
+  const a = Object.assign(document.createElement('a'), {
+    href    : URL.createObjectURL(new Blob(['\uFEFF' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' })),
+    download: name
+  });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+/* ────────────────────────────────────────────
+   UI HELPERS
+──────────────────────────────────────────── */
+function setRecUI(rec) {
+  document.getElementById('btn-start').disabled     = rec;
+  document.getElementById('btn-stop').disabled      = !rec;
+  document.getElementById('btn-save-mic').disabled  = true;
+}
+
+function resetMeter() {
+  session = null; elapsed = 0;
+  ['mval','smean','smin','smax'].forEach(id => document.getElementById(id).textContent = '--');
+  document.getElementById('stime').textContent = '0s';
+  document.getElementById('mval').style.color  = 'var(--green)';
+  document.getElementById('mbar').style.width  = '0%';
+  document.getElementById('col-obs').value     = '';
+  document.getElementById('btn-save-mic').disabled = true;
+  setDot('', 'Aguardando início');
+}
+
+function setDot(cls, txt) {
+  document.getElementById('sdot').className   = 's-dot' + (cls ? ' ' + cls : '');
+  document.getElementById('stxt').textContent = txt;
+}
+
+function updateChip() {
+  document.getElementById('chip').textContent = recs.length;
+  document.getElementById('btn-clear').style.display = recs.length > 0 ? 'block' : 'none';
+}
+
+function incRep() {
+  const el = document.getElementById('col-rep');
+  el.value = (parseInt(el.value) || 1) + 1;
+}
+
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = 'toast', 3200);
+}
+
+function envColor(env) {
+  if (!cmap[env]) { cmap[env] = COLORS[cidx % COLORS.length]; cidx++; }
+  return cmap[env];
+}
+</script>
+</body>
+</html>
