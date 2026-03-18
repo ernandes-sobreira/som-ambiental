@@ -725,7 +725,7 @@ body {
   <div class="tab-panel" id="a-resultado">
     <div class="empty-st" id="a-res-empty">
       <div class="empty-ico">📊</div>
-      <div class="empty-txt">Colete dados de pelo menos 2 ambientes<br>para ver a análise completa.</div>
+      <div class="empty-txt">Nenhuma coleta ainda.<br>Vá para a aba 🎙️ Medir e salve sua primeira coleta.</div>
     </div>
     <div id="a-res-body" style="display:none"></div>
   </div>
@@ -981,11 +981,13 @@ function startFbListener() {
 function refreshAll() {
   renderMyList();
   updateSendBar();
-  if (document.getElementById('a-resultado').classList.contains('active')) renderAResult();
+  // Atualiza resultado sempre (não só quando a aba está ativa)
+  // para que os dados estejam prontos quando o aluno navegar
+  renderAResult();
   if (S.isProf) {
     renderPainel();
     renderPColetas();
-    if (document.getElementById('p-analise').classList.contains('active')) renderPAnalise();
+    renderPAnalise(); // sempre atualiza, não só quando ativo
   }
 }
 
@@ -1281,13 +1283,17 @@ function updateSendBar() {
 function renderAResult() {
   const empty = document.getElementById('a-res-empty');
   const body  = document.getElementById('a-res-body');
+  // Usa allRecs (Firebase) se disponível, senão myRecs locais
   const data  = allRecs.length ? allRecs : myRecs;
   const envs  = [...new Set(data.map(r => r.env))];
 
-  if (envs.length < 2) {
+  // Mostra resultados com qualquer quantidade de dados
+  if (!data.length) {
     empty.style.display = 'block'; body.style.display = 'none'; return;
   }
-  empty.style.display = 'none'; body.style.display = 'block';
+  // Aviso de que precisa de 2+ ambientes para comparação, mas mostra o que tem
+  document.getElementById('a-res-empty').style.display = 'none';
+  body.style.display = 'block';
   body.innerHTML = buildAnalise(data);
   initCharts(body);
 }
@@ -1400,9 +1406,8 @@ function setFilter(env, chip) {
 function renderPAnalise() {
   const empty = document.getElementById('p-an-empty');
   const body  = document.getElementById('p-an-body');
-  const envs  = [...new Set(allRecs.map(r => r.env))];
 
-  if (envs.length < 2) {
+  if (!allRecs.length) {
     empty.style.display = 'block'; body.style.display = 'none'; return;
   }
   empty.style.display = 'none'; body.style.display = 'block';
@@ -1654,6 +1659,7 @@ function buildAnalise(data) {
       pairs.push({ a:a.env, b:b.env, diff, abs, mag });
     }
 
+  if (sums.length >= 2) {
   h += `<div class="card"><div class="card-t">Diferenças par a par</div>`;
   pairs.sort((x,y) => y.abs-x.abs).forEach(p => {
     h += `
@@ -1666,6 +1672,7 @@ function buildAnalise(data) {
       </div>`;
   });
   h += `</div>`;
+  } // fim guard pares
 
   // Interpretação automática
   const top=sums[0], bot=sums[sums.length-1], diff=(top.mean-bot.mean).toFixed(1);
