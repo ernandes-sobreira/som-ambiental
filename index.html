@@ -916,19 +916,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'edit-modal') closeModal();
   });
 
-  // Restaura sessão se existir e reconecta automaticamente
+  // Restaura apenas os campos do formulário — NÃO entra automaticamente
+  // O usuário precisa clicar em Entrar para garantir que o Firebase conectou
   const saved = localStorage.getItem('sa_session');
   if (saved) {
-    const sess = JSON.parse(saved);
-    S = sess;
-    document.getElementById('l-nome').value = S.nome;
-    document.getElementById('l-code').value = S.sala;
-    const raw = localStorage.getItem('sa_recs_' + S.uid);
-    myRecs = raw ? JSON.parse(raw) : [];
-    myRecs.forEach(r => envColor(r.env));
-    // Reconecta Firebase e mostra a página correta automaticamente
-    startFbListener();
-    showPage(S.isProf ? 'prof' : 'aluno');
+    try {
+      const sess = JSON.parse(saved);
+      if (sess.nome) document.getElementById('l-nome').value = sess.nome;
+      if (sess.sala) document.getElementById('l-code').value = sess.sala;
+      // Carrega coletas locais em background
+      if (sess.uid) {
+        const raw = localStorage.getItem('sa_recs_' + sess.uid);
+        if (raw) {
+          const recs = JSON.parse(raw);
+          recs.forEach(r => envColor(r.env));
+        }
+      }
+    } catch(e) {
+      localStorage.removeItem('sa_session');
+    }
   }
 });
 
