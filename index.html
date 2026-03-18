@@ -883,7 +883,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'edit-modal') closeModal();
   });
 
-  // Restaura sessão se existir
+  // Restaura sessão se existir e reconecta automaticamente
   const saved = localStorage.getItem('sa_session');
   if (saved) {
     const sess = JSON.parse(saved);
@@ -893,6 +893,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = localStorage.getItem('sa_recs_' + S.uid);
     myRecs = raw ? JSON.parse(raw) : [];
     myRecs.forEach(r => envColor(r.env));
+    // Reconecta Firebase e mostra a página correta automaticamente
+    startFbListener();
+    showPage(S.isProf ? 'prof' : 'aluno');
   }
 });
 
@@ -954,40 +957,60 @@ function doLogin() {
    FIREBASE LISTENER
 ───────────────────────────────────────── */
 function startFbListener() {
-  if (!window._fbOk) return;
+  if (!window._fbOk) {
+    console.warn("Firebase não disponível");
+    toast("⚠️ Firebase offline — dados locais apenas", "err");
+    return;
+  }
 
-  // Remove listener anterior
-  if (fbRef) window._db.ref('salas/' + S.sala + '/coletas').off('value');
+  // Remove listener anterior se existir
+  if (fbRef) {
+    fbRef.off('value');
+    fbRef = null;
+  }
 
-  fbRef = window._db.ref('salas/' + S.sala + '/coletas');
-  fbRef.on('value', snap => {
-    allRecs = [];
-    snap.forEach(c => allRecs.push({ fbKey: c.key, ...c.val() }));
+  const path = 'salas/' + S.sala + '/coletas';
+  console.log("🔥 Conectando ao Firebase:", path);
 
-    // Marca coletas locais como enviadas
-    let changed = false;
-    myRecs.forEach(r => {
-      if (!r.sent && allRecs.find(a => a.uid === r.uid && a.savedAt === r.savedAt)) {
-        r.sent = true; changed = true;
-      }
-    });
-    if (changed) saveLocal();
+  fbRef = window._db.ref(path);
 
-    // Atualiza telas ativas
-    refreshAll();
-  });
+  fbRef.on('value',
+    snap => {
+      allRecs = [];
+      snap.forEach(child => allRecs.push({ fbKey: child.key, ...child.val() }));
+      console.log("📥 Firebase:", allRecs.length, "coletas recebidas na sala", S.sala);
+
+      // Marca coletas locais como enviadas se já estiverem no Firebase
+      let changed = false;
+      myRecs.forEach(r => {
+        if (!r.sent && allRecs.find(a => a.uid === r.uid && a.savedAt === r.savedAt)) {
+          r.sent = true; changed = true;
+        }
+      });
+      if (changed) saveLocal();
+
+      // Atualiza todas as telas
+      refreshAll();
+    },
+    err => {
+      console.error("Firebase error:", err);
+      toast("Erro Firebase: " + err.message, "err");
+    }
+  );
 }
 
 function refreshAll() {
-  renderMyList();
-  updateSendBar();
-  // Atualiza resultado sempre (não só quando a aba está ativa)
-  // para que os dados estejam prontos quando o aluno navegar
-  renderAResult();
+  // Atualiza telas dependendo do papel do usuário
   if (S.isProf) {
+    // Professor: atualiza as 3 abas sempre que dados chegam
     renderPainel();
     renderPColetas();
-    renderPAnalise(); // sempre atualiza, não só quando ativo
+    renderPAnalise();
+  } else {
+    // Aluno: atualiza sua lista e resultados da sala
+    renderMyList();
+    updateSendBar();
+    renderAResult();
   }
 }
 
@@ -1005,8 +1028,13 @@ function showPage(p) {
   }
   if (p === 'prof') {
     document.getElementById('p-sala').textContent = 'SALA ' + S.sala;
-    renderPainel();
-    renderPColetas();
+    // Não chama render aqui — o Firebase listener (refreshAll) renderiza
+    // quando os dados chegarem. Só chama se já tiver dados carregados.
+    if (allRecs.length > 0) {
+      renderPainel();
+      renderPColetas();
+      renderPAnalise();
+    }
   }
 }
 
