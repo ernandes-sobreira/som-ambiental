@@ -697,22 +697,41 @@ body {
       💾 Salvar coleta
     </button>
 
-    <!-- Barra de envio pendente -->
-    <div class="send-bar" id="send-bar" style="display:none;margin-top:14px">
-      <div>
-        <div class="send-t">Coletas offline</div>
-        <div class="send-sub" id="send-sub">0 para enviar</div>
+    <!-- Botões de envio — sempre visíveis após ter coletas -->
+    <div id="send-area" style="display:none;margin-top:14px">
+      <!-- Status Firebase -->
+      <div id="fb-status-bar" style="background:#111a24;border:1.5px solid #1a2a3a;border-radius:13px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <div id="fb-status-dot" style="width:9px;height:9px;border-radius:50%;background:#2a3a4a;flex-shrink:0"></div>
+        <div>
+          <div id="fb-status-txt" style="font-size:13px;font-weight:600;color:#f0f4f8">Verificando conexão...</div>
+          <div id="fb-status-sub" style="font-size:11px;color:#4a5a6a"></div>
+        </div>
       </div>
-      <button class="btn btn-g" onclick="sendPending()"
-        style="width:auto;min-height:40px;padding:0 16px;font-size:13px;flex-shrink:0">
-        📤 Enviar
+      <!-- Botão enviar ao Firebase -->
+      <button class="btn btn-g" id="btn-send-fb" onclick="sendPending()" style="margin-bottom:8px">
+        📤 Enviar dados para a turma
       </button>
+      <!-- Botão exportar JSON (fallback) -->
+      <button class="btn btn-ghost" onclick="exportMyJSON()" style="min-height:46px;border-radius:12px;font-size:14px;font-weight:600;margin-top:0">
+        📁 Baixar arquivo dos meus dados
+      </button>
+      <div style="font-size:11px;color:#2a3a4a;text-align:center;margin-top:6px;line-height:1.5">
+        Se o envio automático não funcionar, baixe o arquivo e<br>envie para o professor pelo WhatsApp/email.
+      </div>
     </div>
 
   </div><!-- /a-medir -->
 
   <!-- ─── MINHAS COLETAS ─── -->
   <div class="tab-panel" id="a-minhas">
+    <div id="action-bar-minhas" style="display:none;margin-bottom:12px">
+      <button class="btn btn-g" onclick="sendPending()" style="margin-bottom:8px">
+        📤 Enviar todos para a turma
+      </button>
+      <button class="btn btn-ghost" onclick="exportMyJSON()" style="min-height:46px;border-radius:12px;font-size:14px;font-weight:600;margin-top:0">
+        📁 Baixar arquivo dos meus dados
+      </button>
+    </div>
     <div id="my-list">
       <div class="empty-st" id="my-empty">
         <div class="empty-ico">📋</div>
@@ -757,6 +776,20 @@ body {
 
   <!-- ─── PAINEL ─── -->
   <div class="tab-panel active" id="p-painel">
+    <!-- Importar JSON de aluno (fallback quando Firebase não funciona) -->
+    <div style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.2);border-radius:13px;padding:13px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#4a9ebb;margin-bottom:8px">
+        📥 Importar dados de aluno
+      </div>
+      <div style="font-size:13px;color:#4a5a6a;margin-bottom:10px;line-height:1.5">
+        Se um aluno enviou o arquivo pelo WhatsApp/email, abra o arquivo aqui para integrar os dados:
+      </div>
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border-radius:12px;background:#111a24;border:1.5px dashed rgba(0,180,216,.35);color:#4a9ebb;font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <input type="file" accept=".json" onchange="importJSON(this)" style="display:none">
+        📂 Selecionar arquivo .json do aluno
+      </label>
+      <div id="import-result" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:#00e5a0;text-align:center"></div>
+    </div>
     <div id="p-painel-body">
       <div class="empty-st">
         <div class="empty-ico">⏳</div>
@@ -1200,6 +1233,7 @@ function pushRec(extra) {
 
   renderMyList();
   updateSendBar();
+  updateSendArea();
   toast('Coleta salva!', 'ok');
 
   // Tenta enviar imediatamente
@@ -1292,13 +1326,14 @@ function deleteMyRec(rid) {
   saveLocal();
   renderMyList();
   updateSendBar();
+  updateSendArea();
   toast('Coleta removida', 'err');
 }
 
 /* ─────────────────────────────────────────
    SEND BAR
 ───────────────────────────────────────── */
-function updateSendBar() {
+function updateSendBar() { updateSendArea();
   const n   = myRecs.filter(r => !r.sent).length;
   const bar = document.getElementById('send-bar');
   bar.style.display = n > 0 ? 'flex' : 'none';
@@ -1844,11 +1879,136 @@ function expCSV() {
   const h = ['Nome','Sala','Data','Hora','Ambiente','Réplica','Dur(s)','Média_dB','Mín_dB','Máx_dB','Fonte'];
   const r = data.map(d => [d.nome,d.sala,d.date,d.time,d.env,d.replica,d.duration,d.mean,d.min,d.max,d.source]);
   const a = Object.assign(document.createElement('a'), {
-    href    : URL.createObjectURL(new Blob(['\uFEFF' + [h,...r].map(row=>row.join(',')).join('\n')], {type:'text/csv;charset=utf-8;'})),
+    href    : URL.createObjectURL(new Blob(['﻿' + [h,...r].map(row=>row.join(',')).join('
+')], {type:'text/csv;charset=utf-8;'})),
     download: `som_ambiental_${S.sala}.csv`
   });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('CSV baixado!', 'ok');
+}
+
+/* ─────────────────────────────────────────
+   EXPORTAR JSON (aluno → professor via WhatsApp/email)
+───────────────────────────────────────── */
+function exportMyJSON() {
+  if (!myRecs.length) { toast('Nenhuma coleta para exportar', 'err'); return; }
+  const payload = {
+    exportedAt : new Date().toISOString(),
+    app        : 'Som Ambiental',
+    sala       : S.sala,
+    nome       : S.nome,
+    coletas    : myRecs.map(r => ({
+      nome: r.nome, sala: r.sala, uid: r.uid,
+      date: r.date, time: r.time, env: r.env,
+      replica: r.replica, duration: r.duration,
+      mean: r.mean, min: r.min, max: r.max,
+      source: r.source, savedAt: r.savedAt
+    }))
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const nome = (S.nome || 'aluno').toLowerCase().replace(/\s+/g,'_');
+  const a = Object.assign(document.createElement('a'), {
+    href    : URL.createObjectURL(new Blob([json], {type:'application/json'})),
+    download: `som_${S.sala}_${nome}.json`
+  });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Arquivo baixado! Envie para o professor.', 'ok');
+}
+
+/* ─────────────────────────────────────────
+   IMPORTAR JSON (professor lê arquivo do aluno)
+───────────────────────────────────────── */
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      if (!payload.coletas || !Array.isArray(payload.coletas)) {
+        toast('Arquivo inválido', 'err'); return;
+      }
+      const coletas = payload.coletas;
+      let saved = 0;
+
+      if (window._fbOk) {
+        // Envia cada coleta ao Firebase
+        for (const rec of coletas) {
+          try {
+            // Verifica se já existe (evita duplicata)
+            const exists = allRecs.find(a =>
+              a.uid === rec.uid && a.savedAt === rec.savedAt
+            );
+            if (!exists) {
+              await window._db.ref('salas/' + S.sala + '/coletas').push(rec);
+              saved++;
+            }
+          } catch(err) { console.warn(err); }
+        }
+        const result = document.getElementById('import-result');
+        result.style.display = 'block';
+        result.textContent = saved > 0
+          ? `✅ ${saved} coleta${saved>1?'s':''} de ${payload.nome} importada${saved>1?'s':''}!`
+          : `⚠️ Coletas de ${payload.nome} já estavam no banco`;
+        toast(result.textContent, saved > 0 ? 'ok' : '');
+      } else {
+        // Sem Firebase: adiciona localmente ao allRecs para visualização
+        coletas.forEach(rec => {
+          const exists = allRecs.find(a => a.uid === rec.uid && a.savedAt === rec.savedAt);
+          if (!exists) { allRecs.push(rec); saved++; }
+        });
+        refreshAll();
+        const result = document.getElementById('import-result');
+        result.style.display = 'block';
+        result.textContent = `✅ ${saved} coletas de ${payload.nome} carregadas (somente visualização)`;
+        toast(result.textContent, 'ok');
+      }
+    } catch(err) {
+      toast('Erro ao ler arquivo: ' + err.message, 'err');
+    }
+    input.value = ''; // limpa o input para permitir re-importar
+  };
+  reader.readAsText(file);
+}
+
+/* ─────────────────────────────────────────
+   ATUALIZA ÁREA DE ENVIO (aluno)
+───────────────────────────────────────── */
+function updateSendArea() {
+  const area = document.getElementById('send-area');
+  const actionBar = document.getElementById('action-bar-minhas');
+  if (!area) return;
+
+  if (!myRecs.length) {
+    area.style.display = 'none';
+    if (actionBar) actionBar.style.display = 'none';
+    return;
+  }
+
+  area.style.display = 'block';
+  if (actionBar) actionBar.style.display = 'block';
+
+  const dot = document.getElementById('fb-status-dot');
+  const txt = document.getElementById('fb-status-txt');
+  const sub = document.getElementById('fb-status-sub');
+  const pending = myRecs.filter(r => !r.sent).length;
+  const sent    = myRecs.filter(r => r.sent).length;
+
+  if (window._fbOk) {
+    if (pending > 0) {
+      dot.style.background = '#f7b731';
+      txt.textContent = pending + ' coleta' + (pending>1?'s':'') + ' para enviar';
+      sub.textContent = sent > 0 ? sent + ' já enviada' + (sent>1?'s':'') : 'Toque em Enviar quando tiver Wi-Fi';
+    } else {
+      dot.style.background = '#00e5a0';
+      txt.textContent = 'Todos os dados enviados ✓';
+      sub.textContent = myRecs.length + ' coleta' + (myRecs.length>1?'s':'') + ' na turma';
+    }
+  } else {
+    dot.style.background = '#ff6b7a';
+    txt.textContent = 'Sem conexão Firebase';
+    sub.textContent = 'Baixe o arquivo e envie para o professor';
+  }
 }
 
 /* ─────────────────────────────────────────
