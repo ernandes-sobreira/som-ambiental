@@ -1504,68 +1504,116 @@ function initBoxChart(canvas) {
   canvas._done = true;
   var sums = JSON.parse(canvas.getAttribute('data-sums')||'[]');
   if(!sums.length) return;
+
+  /* Pega largura real do elemento pai (canvas pode ter width=0 se oculto) */
+  var parent = canvas.parentElement || canvas;
+  var W = parent.clientWidth || parent.offsetWidth || 320;
+  /* Altura proporcional ao numero de ambientes, minimo 280 */
+  var H = Math.max(280, sums.length * 48 + 80);
+  canvas.style.height = H + 'px';
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
   var ctx = canvas.getContext('2d');
-  var W = canvas.offsetWidth || 300;
-  var H = canvas.offsetHeight || 260;
-  canvas.width = W * window.devicePixelRatio;
-  canvas.height = H * window.devicePixelRatio;
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  ctx.scale(dpr, dpr);
 
   var allVals = [];
   sums.forEach(function(s){ s.vals.forEach(function(v){allVals.push(v);}); });
-  var vMin = Math.min.apply(null,allVals)-3, vMax = Math.max.apply(null,allVals)+3;
+  var vMin = Math.min.apply(null,allVals), vMax = Math.max.apply(null,allVals);
+  var range = vMax - vMin || 10;
+  vMin = vMin - range*0.12;
+  vMax = vMax + range*0.12;
 
-  var pad = {top:20,bot:36,left:10,right:10};
-  var plotH = H-pad.top-pad.bot;
-  var plotW = W-pad.left-pad.right;
-  var boxW = Math.min(36, (plotW/sums.length)*0.5);
+  /* Margem esquerda generosa para labels do eixo Y */
+  var pad = {top:16, bot:52, left:42, right:14};
+  var plotH = H - pad.top - pad.bot;
+  var plotW = W - pad.left - pad.right;
 
-  function yp(v) { return pad.top + plotH*(1-(v-vMin)/(vMax-vMin)); }
+  /* Largura da caixa adaptada ao numero de ambientes */
+  var slot  = plotW / sums.length;
+  var boxW  = Math.min(44, Math.max(16, slot * 0.45));
 
-  /* Grade */
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
-  for(var g=0;g<5;g++) {
-    var gy = pad.top + plotH*(g/4);
-    ctx.beginPath(); ctx.moveTo(pad.left,gy); ctx.lineTo(W-pad.right,gy); ctx.stroke();
-    var gv = vMax - (vMax-vMin)*(g/4);
-    ctx.fillStyle='#94a3b8'; ctx.font='10px Inter'; ctx.textAlign='right';
-    ctx.fillText(gv.toFixed(0),pad.left+28,gy+4);
+  function yp(v) { return pad.top + plotH * (1 - (v - vMin) / (vMax - vMin)); }
+
+  /* Fundo */
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  /* Grade horizontal */
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  for(var g = 0; g <= 5; g++) {
+    var gy = pad.top + plotH * (g / 5);
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(W - pad.right, gy); ctx.stroke();
+    var gv = vMax - (vMax - vMin) * (g / 5);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px Inter';
+    ctx.textAlign = 'right';
+    ctx.fillText(gv.toFixed(0), pad.left - 4, gy + 4);
   }
 
-  sums.forEach(function(s,i) {
+  /* Label eixo Y */
+  ctx.save();
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px Inter';
+  ctx.textAlign = 'center';
+  ctx.translate(12, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('dB', 0, 0);
+  ctx.restore();
+
+  sums.forEach(function(s, i) {
     var b = calcBox(s.vals);
-    if(!b) return;
-    var cx = pad.left + 30 + (plotW-30)*(i+0.5)/sums.length;
+    var cx = pad.left + slot * (i + 0.5);
     var col = s.color;
 
-    /* Bigodes */
-    ctx.strokeStyle=col; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(cx,yp(b.whi)); ctx.lineTo(cx,yp(b.q3)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx,yp(b.q1)); ctx.lineTo(cx,yp(b.wlo)); ctx.stroke();
-    /* Caps */
-    ctx.beginPath(); ctx.moveTo(cx-boxW*0.3,yp(b.whi)); ctx.lineTo(cx+boxW*0.3,yp(b.whi)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-boxW*0.3,yp(b.wlo)); ctx.lineTo(cx+boxW*0.3,yp(b.wlo)); ctx.stroke();
-    /* Caixa */
-    ctx.fillStyle = col+'30';
-    ctx.fillRect(cx-boxW/2, yp(b.q3), boxW, yp(b.q1)-yp(b.q3));
-    ctx.strokeStyle=col; ctx.lineWidth=2;
-    ctx.strokeRect(cx-boxW/2, yp(b.q3), boxW, yp(b.q1)-yp(b.q3));
-    /* Mediana */
-    ctx.strokeStyle=col; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(cx-boxW/2,yp(b.q2)); ctx.lineTo(cx+boxW/2,yp(b.q2)); ctx.stroke();
-    /* Outliers */
-    ctx.fillStyle=col;
-    b.outliers.forEach(function(ov) {
-      ctx.beginPath(); ctx.arc(cx,yp(ov),4,0,2*Math.PI); ctx.fill();
-    });
-    /* Label */
-    ctx.fillStyle='#1e293b'; ctx.font='bold 10px Inter'; ctx.textAlign='center';
-    var lbl = s.env.length>8?s.env.slice(0,8)+'..':s.env;
-    ctx.fillText(lbl, cx, H-pad.bot+14);
-    ctx.fillStyle='#64748b'; ctx.font='9px Inter';
-    ctx.fillText('n='+s.n, cx, H-pad.bot+25);
+    if(b) {
+      /* Bigodes */
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx, yp(b.whi)); ctx.lineTo(cx, yp(b.q3)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, yp(b.q1)); ctx.lineTo(cx, yp(b.wlo)); ctx.stroke();
+      /* Caps dos bigodes */
+      var cw = boxW * 0.28;
+      ctx.beginPath(); ctx.moveTo(cx-cw, yp(b.whi)); ctx.lineTo(cx+cw, yp(b.whi)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-cw, yp(b.wlo)); ctx.lineTo(cx+cw, yp(b.wlo)); ctx.stroke();
+      /* Caixa preenchida */
+      ctx.fillStyle = col + '28';
+      ctx.fillRect(cx - boxW/2, yp(b.q3), boxW, yp(b.q1) - yp(b.q3));
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.strokeRect(cx - boxW/2, yp(b.q3), boxW, yp(b.q1) - yp(b.q3));
+      /* Mediana */
+      ctx.strokeStyle = col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx - boxW/2, yp(b.q2)); ctx.lineTo(cx + boxW/2, yp(b.q2)); ctx.stroke();
+      /* Outliers */
+      ctx.fillStyle = col;
+      b.outliers.forEach(function(ov) {
+        ctx.beginPath(); ctx.arc(cx, yp(ov), 4.5, 0, 2*Math.PI); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    } else {
+      /* n=1: so um ponto */
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(cx, yp(s.mean), 6, 0, 2*Math.PI); ctx.fill();
+    }
+
+    /* Labels diagonais para evitar sobreposicao */
+    ctx.save();
+    ctx.translate(cx, H - pad.bot + 8);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 10px Inter';
+    ctx.textAlign = 'right';
+    /* Trunca nomes longos */
+    var lbl = s.env.length > 10 ? s.env.slice(0, 10) + '..' : s.env;
+    ctx.fillText(lbl, 0, 0);
+    ctx.restore();
+
+    /* n= abaixo do label */
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '9px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('n=' + s.n, cx, H - 6);
   });
 }
 
@@ -1670,40 +1718,86 @@ function initAmpChart(canvas) {
   canvas._done = true;
   var sums = JSON.parse(canvas.getAttribute('data-sums')||'[]');
   if(!sums.length) return;
-  /* Plugin para desenhar IC95 como marcas */
-  var icPlugin = {id:'ic95',afterDatasetsDraw:function(chart) {
-    var ctx=chart.ctx,x=chart.scales.x,y=chart.scales.y;
-    sums.forEach(function(s,i) {
-      var ic=s.ic;
-      if(!ic) return;
-      var xp=x.getPixelForValue(i),yLo=y.getPixelForValue(ic.lo),yHi=y.getPixelForValue(ic.hi);
-      var cap=10;
-      ctx.save();ctx.strokeStyle='#f97316';ctx.lineWidth=3;ctx.beginPath();
-      ctx.moveTo(xp,yHi);ctx.lineTo(xp,yLo);
-      ctx.moveTo(xp-cap,yHi);ctx.lineTo(xp+cap,yHi);
-      ctx.moveTo(xp-cap,yLo);ctx.lineTo(xp+cap,yLo);
+
+  /* Floating bars: cada barra vai de Min ate Max no eixo Y real */
+  /* IC95 e media sao sobrepostos como plugin */
+  var allVals = [];
+  sums.forEach(function(s){ allVals.push(s.min); allVals.push(s.max); });
+  var yMin = Math.min.apply(null,allVals);
+  var yMax = Math.max.apply(null,allVals);
+  var pad  = (yMax - yMin) * 0.12 || 3;
+
+  var icPlugin = {id:'icAmp', afterDatasetsDraw: function(chart) {
+    var ctx = chart.ctx;
+    var x = chart.scales.x;
+    var y = chart.scales.y;
+    sums.forEach(function(s, i) {
+      var xp  = x.getPixelForValue(i);
+      var cap = 10;
+      /* Linha da media (cinza escuro) */
+      var yMean = y.getPixelForValue(s.mean);
+      ctx.save();
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(xp - cap, yMean); ctx.lineTo(xp + cap, yMean);
       ctx.stroke();
-      /* ponto da media */
-      ctx.fillStyle='#f97316';
-      ctx.beginPath();ctx.arc(xp,(yHi+yLo)/2,5,0,2*Math.PI);ctx.fill();
+      /* IC95 (laranja) - so se tiver n>1 */
+      if(s.ic && s.n > 1) {
+        var yLo = y.getPixelForValue(s.ic.lo);
+        var yHi = y.getPixelForValue(s.ic.hi);
+        ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(xp, yHi); ctx.lineTo(xp, yLo);
+        ctx.moveTo(xp - cap*0.6, yHi); ctx.lineTo(xp + cap*0.6, yHi);
+        ctx.moveTo(xp - cap*0.6, yLo); ctx.lineTo(xp + cap*0.6, yLo);
+        ctx.stroke();
+        /* ponto laranja na media */
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath(); ctx.arc(xp, yMean, 4, 0, 2*Math.PI); ctx.fill();
+      }
       ctx.restore();
     });
   }};
-  new Chart(canvas.getContext('2d'),{
-    type:'bar', plugins:[icPlugin],
-    data:{labels:sums.map(function(s){return s.env;}),
-      datasets:[{data:sums.map(function(s){return s.amp;}),
-        backgroundColor:sums.map(function(s){return s.color+'44';}),
-        borderColor:sums.map(function(s){return s.color;}),
-        borderWidth:2,borderRadius:8,label:'Amplitude'}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){
-        var s=sums[c.dataIndex];
-        return[' Amplitude: '+s.amp+' dB',' IC95%: '+s.ic.lo+' a '+s.ic.hi+' dB',' Min: '+s.min+' | Max: '+s.max];
-      }}}},
-      scales:{x:{ticks:{color:'#64748b',font:{family:'Inter',size:10}},grid:{color:'#f1f5f9'}},
-        y:{ticks:{color:'#64748b',font:{family:'Inter',size:10}},grid:{color:'#f1f5f9'},
-          title:{display:true,text:'dB',color:'#64748b',font:{family:'Inter',size:10}}}}}
+
+  new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    plugins: [icPlugin],
+    data: {
+      labels: sums.map(function(s){ return s.env; }),
+      datasets: [{
+        /* Floating bar: [min, max] para cada ambiente */
+        data: sums.map(function(s){ return [s.min, s.max]; }),
+        backgroundColor: sums.map(function(s){ return s.color + '33'; }),
+        borderColor    : sums.map(function(s){ return s.color; }),
+        borderWidth: 2, borderRadius: 6,
+        label: 'Amplitude (Min-Max)'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display:false},
+        tooltip: {callbacks: {label: function(c) {
+          var s = sums[c.dataIndex];
+          var lines = [
+            ' Amplitude: ' + s.amp + ' dB  (Min=' + s.min + ' | Max=' + s.max + ')',
+            ' Media: '     + s.mean + ' dB'
+          ];
+          if(s.n > 1) lines.push(' IC95%: ' + s.ic.lo + ' a ' + s.ic.hi + ' dB');
+          return lines;
+        }}}
+      },
+      scales: {
+        x: {ticks:{color:'#64748b',font:{family:'Inter',size:10}}, grid:{color:'#f1f5f9'}},
+        y: {
+          min: yMin - pad,
+          max: yMax + pad,
+          ticks:{color:'#64748b',font:{family:'Inter',size:10}},
+          grid:{color:'#f1f5f9'},
+          title:{display:true,text:'dB',color:'#64748b',font:{family:'Inter',size:10}}
+        }
+      }
+    }
   });
 }
 
