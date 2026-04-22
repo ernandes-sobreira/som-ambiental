@@ -555,6 +555,39 @@ var PROF_PASS_KEY = "SOBREIRA";
 // Dados reais da Diretiva 2002/49/EC - 435 aglomeracoes urbanas, 32 paises
 var EEA = {"meta":{"fonte":"European Environment Agency (EEA) - Environmental Noise Directive 2002/49/EC","ano":"2022","cutoff":"2024-11-18","n_aglomeracoes":435,"n_paises":32,"citacao":"EEA (2024). Population exposure to noise from different sources in Europe - Summary END 2022. European Environment Agency. https://www.eea.europa.eu"},"lden_faixas":[{"pm":47,"label":"45-49","pessoas":2844900,"pct":4.49},{"pm":52,"label":"50-54","pessoas":4165000,"pct":6.58},{"pm":57,"label":"55-59","pessoas":24072200,"pct":38.01},{"pm":62,"label":"60-64","pessoas":17869600,"pct":28.22},{"pm":67,"label":"65-69","pessoas":10504300,"pct":16.59},{"pm":72,"label":"70-74","pessoas":3471200,"pct":5.48},{"pm":77,"label":"75+","pessoas":398700,"pct":0.63}],"lnight_faixas":[{"pm":52,"label":"50-54","pessoas":3127100,"pct":7.18},{"pm":57,"label":"55-59","pessoas":5192400,"pct":11.92},{"pm":62,"label":"60-64","pessoas":18844300,"pct":43.27},{"pm":67,"label":"65-69","pessoas":11665600,"pct":26.79},{"pm":72,"label":"70+","pessoas":4723000,"pct":10.84}],"situacoes":[{"id":1,"nome":"Quarto noturno residencial","db_min":25,"db_max":45,"horario":"noturno","eea_ref_pm":52,"cor":"#6366f1","icone":"🌙","desc":"Ambiente para dormir. Comparavel a exposicao noturna (Lnight) residencial na Europa."},{"id":2,"nome":"Ambiente domestico diurno","db_min":35,"db_max":60,"horario":"diurno","eea_ref_pm":52,"cor":"#10b981","icone":"🏠","desc":"Sala, cozinha, uso normal da casa. Comparavel a Lden baixo residencial europeu."},{"id":3,"nome":"Sala de aula ou ambiente educacional","db_min":40,"db_max":75,"horario":"diurno","eea_ref_pm":57,"cor":"#0891b2","icone":"📚","desc":"Ambiente de ensino com ou sem alunos. Comparavel a Lden medio-baixo europeu."},{"id":4,"nome":"Rua residencial tranquila","db_min":45,"db_max":65,"horario":"diurno","eea_ref_pm":57,"cor":"#059669","icone":"🏘️","desc":"Bairro residencial, trafego leve. Comparavel a rua secundaria europeia."},{"id":5,"nome":"Rua comercial com trafego","db_min":55,"db_max":75,"horario":"diurno","eea_ref_pm":62,"cor":"#f59e0b","icone":"🛒","desc":"Rua com comercio e trafego moderado. Comparavel a via urbana principal europeia."},{"id":6,"nome":"Praca ou area aberta de convivencia","db_min":40,"db_max":70,"horario":"diurno","eea_ref_pm":57,"cor":"#7c3aed","icone":"🌳","desc":"Espaco publico aberto. Comparavel a area urbana diurna media europeia."},{"id":7,"nome":"Trafego intenso ou rodovia","db_min":65,"db_max":90,"horario":"diurno","eea_ref_pm":67,"cor":"#dc2626","icone":"🚗","desc":"Avenida arterial, rodoviaria, cruzamento intenso. Comparavel a via arterial europeia."},{"id":8,"nome":"Aglomeracao (mercado, shopping, evento)","db_min":55,"db_max":85,"horario":"diurno","eea_ref_pm":62,"cor":"#db2777","icone":"👥","desc":"Local com muitas pessoas em ambiente fechado ou semi-aberto. Comparavel a aglomeracao urbana densa."}]};
 
+// ===== BUNDLE DE CIDADES ESPECIFICAS (40 perfis: 10 cidades x 4 tipos de ruido) =====
+var CIDADES = [{"pais":"Portugal","cidade":"Porto","tipo":"rodoviario","habitantes":237593,"lden":{"47":55500,"52":31300,"57":18700,"62":18600,"67":19200,"72":5400,"77":700},"lnight":{"52":35500,"57":20600,"62":18300,"67":19600,"72":7500}},{"pais":"Portugal","cidade":"Porto","tipo":"aeroporto","habitantes":237593,"lden":{"47":0,"52":0,"57":1000,"62":0,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":10500,"62":0,"67":0,"72":0}},{"pais":"Portugal","cidade":"Porto","tipo":"ferroviario","habitantes":237593,"lden":{"47":2400,"52":800,"57":700,"62":200,"67":100,"72":0,"77":0},"lnight":{"52":900,"57":700,"62":200,"67":100,"72":100}},{"pais":"Portugal","cidade":"Porto","tipo":"industrial","habitantes":237593,"lden":{"52":0,"57":0,"62":0,"67":0,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Spain","cidade":"Madrid","tipo":"rodoviario","habitantes":3334730,"lden":{"47":0,"52":0,"57":1021200,"62":659600,"67":203100,"72":30400,"77":900},"lnight":{"52":0,"57":0,"62":762800,"67":271600,"72":61700}},{"pais":"Spain","cidade":"Madrid","tipo":"aeroporto","habitantes":3334730,"lden":{"47":0,"52":0,"57":0,"62":0,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":0,"67":0,"72":0}},{"pais":"Spain","cidade":"Madrid","tipo":"ferroviario","habitantes":3334730,"lden":{"47":0,"52":0,"57":0,"62":0,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":0,"67":0,"72":0}},{"pais":"Spain","cidade":"Madrid","tipo":"industrial","habitantes":3334730,"lden":{"52":0,"57":0,"62":0,"67":0,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"France","cidade":"Paris","tipo":"rodoviario","habitantes":7068800,"lden":{"47":0,"52":0,"57":1852400,"62":1943800,"67":1276700,"72":345900,"77":40100},"lnight":{"52":0,"57":0,"62":2057100,"67":1385300,"72":591800}},{"pais":"France","cidade":"Paris","tipo":"aeroporto","habitantes":7068800,"lden":{"47":0,"52":0,"57":69400,"62":47900,"67":11800,"72":1300,"77":0},"lnight":{"52":0,"57":0,"62":45200,"67":12200,"72":600}},{"pais":"France","cidade":"Paris","tipo":"ferroviario","habitantes":7068800,"lden":{"47":0,"52":0,"57":257100,"62":140100,"67":75600,"72":34800,"77":12900},"lnight":{"52":0,"57":0,"62":169500,"67":88100,"72":47200}},{"pais":"France","cidade":"Paris","tipo":"industrial","habitantes":7068800,"lden":{"52":0,"57":0,"62":3900,"67":1100,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Italy","cidade":"Rome","tipo":"rodoviario","habitantes":2783809,"lden":{"47":580100,"52":473500,"57":391900,"62":298600,"67":175500,"72":53900,"77":10800},"lnight":{"52":508300,"57":424800,"62":339000,"67":219700,"72":81800}},{"pais":"Italy","cidade":"Rome","tipo":"aeroporto","habitantes":2783809,"lden":{"47":0,"52":0,"57":3200,"62":200,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":3200,"62":200,"67":0,"72":0}},{"pais":"Italy","cidade":"Rome","tipo":"ferroviario","habitantes":2783809,"lden":{"47":84000,"52":121100,"57":65900,"62":57100,"67":14800,"72":7700,"77":700},"lnight":{"52":117000,"57":76100,"62":86700,"67":27800,"72":15700}},{"pais":"Italy","cidade":"Rome","tipo":"industrial","habitantes":2783809,"lden":{"52":3200,"57":2200,"62":1300,"67":500,"72":200},"lnight":{"47":0,"52":0,"57":2500,"62":2100}},{"pais":"Germany","cidade":"Berlin","tipo":"rodoviario","habitantes":3606316,"lden":{"47":0,"52":0,"57":364100,"62":343200,"67":369500,"72":92700,"77":3400},"lnight":{"52":0,"57":0,"62":350600,"67":370500,"72":206500}},{"pais":"Germany","cidade":"Berlin","tipo":"aeroporto","habitantes":3606316,"lden":{"47":0,"52":0,"57":8300,"62":500,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":1300,"67":0,"72":0}},{"pais":"Germany","cidade":"Berlin","tipo":"ferroviario","habitantes":3606316,"lden":{"47":0,"52":0,"57":194600,"62":98700,"67":41700,"72":9600,"77":8000},"lnight":{"52":0,"57":0,"62":150800,"67":68000,"72":21200}},{"pais":"Germany","cidade":"Berlin","tipo":"industrial","habitantes":3606316,"lden":{"52":0,"57":0,"62":600,"67":100,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Netherlands","cidade":"Amsterdam","tipo":"rodoviario","habitantes":2636524,"lden":{"47":0,"52":0,"57":297900,"62":252000,"67":177000,"72":51500,"77":2200},"lnight":{"52":0,"57":0,"62":242800,"67":179100,"72":77800}},{"pais":"Netherlands","cidade":"Amsterdam","tipo":"aeroporto","habitantes":2636524,"lden":{"47":0,"52":0,"57":4800,"62":200,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":400,"67":0,"72":0}},{"pais":"Netherlands","cidade":"Amsterdam","tipo":"ferroviario","habitantes":2636524,"lden":{"47":0,"52":0,"57":43300,"62":22200,"67":4700,"72":300,"77":0},"lnight":{"52":0,"57":0,"62":28700,"67":8400,"72":700}},{"pais":"Netherlands","cidade":"Amsterdam","tipo":"industrial","habitantes":2636524,"lden":{"52":0,"57":0,"62":12800,"67":800,"72":100},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Austria","cidade":"Vienna","tipo":"rodoviario","habitantes":1977300,"lden":{"47":0,"52":0,"57":552000,"62":288700,"67":179500,"72":179900,"77":52000},"lnight":{"52":0,"57":541300,"62":260800,"67":176400,"72":182400}},{"pais":"Austria","cidade":"Vienna","tipo":"aeroporto","habitantes":1977300,"lden":{"47":0,"52":0,"57":4700,"62":0,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":8100,"62":0,"67":0,"72":0}},{"pais":"Austria","cidade":"Vienna","tipo":"ferroviario","habitantes":1977300,"lden":{"47":0,"52":0,"57":162700,"62":137900,"67":54400,"72":17700,"77":7100},"lnight":{"52":0,"57":193800,"62":158600,"67":79500,"72":27700}},{"pais":"Austria","cidade":"Vienna","tipo":"industrial","habitantes":1977300,"lden":{"52":0,"57":0,"62":0,"67":0,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":900}},{"pais":"Poland","cidade":"Warsaw","tipo":"rodoviario","habitantes":1663587,"lden":{"47":0,"52":0,"57":271800,"62":172600,"67":89000,"72":27300,"77":1600},"lnight":{"52":0,"57":0,"62":192200,"67":108800,"72":38200}},{"pais":"Poland","cidade":"Warsaw","tipo":"aeroporto","habitantes":1663587,"lden":{"47":0,"52":0,"57":20400,"62":1300,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":4700,"67":300,"72":0}},{"pais":"Poland","cidade":"Warsaw","tipo":"ferroviario","habitantes":1663587,"lden":{"47":0,"52":0,"57":38500,"62":24100,"67":7200,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":27900,"67":9800,"72":0}},{"pais":"Poland","cidade":"Warsaw","tipo":"industrial","habitantes":1663587,"lden":{"52":0,"57":0,"62":0,"67":0,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Sweden","cidade":"Stockholm","tipo":"rodoviario","habitantes":974073,"lden":{"47":0,"52":128500,"57":242200,"62":85800,"67":43800,"72":15100,"77":0},"lnight":{"52":0,"57":0,"62":77200,"67":39300,"72":15500}},{"pais":"Sweden","cidade":"Stockholm","tipo":"aeroporto","habitantes":974073,"lden":{"47":0,"52":0,"57":8600,"62":900,"67":0,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":0,"67":0,"72":0}},{"pais":"Sweden","cidade":"Stockholm","tipo":"ferroviario","habitantes":974073,"lden":{"47":0,"52":0,"57":36200,"62":19900,"67":1100,"72":600,"77":0},"lnight":{"52":0,"57":0,"62":23000,"67":7800,"72":2600}},{"pais":"Sweden","cidade":"Stockholm","tipo":"industrial","habitantes":974073,"lden":{"52":0,"57":0,"62":0,"67":0,"72":0},"lnight":{"47":0,"52":0,"57":0,"62":0}},{"pais":"Ireland","cidade":"Dublin","tipo":"rodoviario","habitantes":1566538,"lden":{"47":0,"52":0,"57":287400,"62":160500,"67":78700,"72":23100,"77":2500},"lnight":{"52":0,"57":0,"62":169200,"67":78400,"72":33000}},{"pais":"Ireland","cidade":"Dublin","tipo":"aeroporto","habitantes":1566538,"lden":{"47":0,"52":0,"57":12600,"62":700,"67":100,"72":0,"77":0},"lnight":{"52":0,"57":0,"62":3300,"67":300,"72":0}},{"pais":"Ireland","cidade":"Dublin","tipo":"ferroviario","habitantes":1566538,"lden":{"47":0,"52":0,"57":33900,"62":19300,"67":14600,"72":10700,"77":5700},"lnight":{"52":0,"57":0,"62":22400,"67":15500,"72":10600}},{"pais":"Ireland","cidade":"Dublin","tipo":"industrial","habitantes":1566538,"lden":{"52":0,"57":0,"62":1700,"67":400,"72":100},"lnight":{"47":0,"52":0,"57":0,"62":0}}];
+
+var SITUACAO_PARA_RUIDO = {
+  1: ['rodoviario', 'aeroporto'],
+  2: ['rodoviario'],
+  3: ['rodoviario', 'ferroviario'],
+  4: ['rodoviario'],
+  5: ['rodoviario'],
+  6: ['rodoviario', 'aeroporto'],
+  7: ['rodoviario', 'aeroporto', 'ferroviario', 'industrial'],
+  8: ['rodoviario', 'industrial']
+};
+
+function amostrarCidade(perfilCidade, n, usarLnight) {
+  var faixas = usarLnight ? perfilCidade.lnight : perfilCidade.lden;
+  var pms = Object.keys(faixas).map(function(k){return parseInt(k);}).sort(function(a,b){return a-b;});
+  var total = 0;
+  pms.forEach(function(pm){ total += faixas[pm]; });
+  if (total === 0) return [];
+  var cdf = []; var acum = 0;
+  pms.forEach(function(pm){ acum += faixas[pm] / total; cdf.push({pm: pm, cum: acum}); });
+  var amostras = [];
+  for (var i = 0; i < n; i++) {
+    var u = Math.random();
+    var pmSorteado = cdf[cdf.length - 1].pm;
+    for (var j = 0; j < cdf.length; j++) { if (u <= cdf[j].cum) { pmSorteado = cdf[j].pm; break; } }
+    var v = pmSorteado - 2 + Math.random() * 4;
+    amostras.push(+v.toFixed(1));
+  }
+  return amostras;
+}
+
 // Classifica uma coleta em uma das 8 situacoes EEA a partir das respostas contextuais
 function classificarSituacao(ctx) {
   // ctx: {pessoas, tipo, trafego, fonte, periodo, env}
@@ -697,6 +730,72 @@ function doLogin() {
     }
   }
   var isProf = selectedRole === 'p';
+
+  // Professor nao precisa de verificacao de colisao - acessa qualquer sala
+  if (isProf) { finalizaLogin(nome, code, isProf); return; }
+
+  // Aluno: verifica se ja existe sala com esse codigo no Firebase
+  if (!window._fbOk) {
+    // Sem Firebase (offline), entra direto
+    finalizaLogin(nome, code, isProf);
+    return;
+  }
+
+  // Consulta Firebase apenas para sabermos se ja existe outro aluno com mesmo codigo
+  window._db.ref('salas/' + code + '/coletas').limitToFirst(1).once('value', function(snap) {
+    if (!snap.exists()) {
+      finalizaLogin(nome, code, isProf);
+      return;
+    }
+    // Sala ja existe - descobre o nome do aluno que ja usa
+    var primeiroDono = null;
+    snap.forEach(function(child) {
+      var v = child.val();
+      if (v && v.nome) primeiroDono = v.nome;
+    });
+    var meuNomeNormalizado = nome.toLowerCase().trim();
+    var donoNormalizado = primeiroDono ? primeiroDono.toLowerCase().trim() : '';
+
+    if (donoNormalizado === meuNomeNormalizado) {
+      // Mesmo nome: provavelmente e a mesma pessoa voltando
+      toast('Bem-vindo de volta, ' + nome + '!', 'ok');
+      finalizaLogin(nome, code, isProf);
+    } else {
+      // Nome diferente: colisao. Pergunta o que fazer.
+      var msg = 'Ja existe uma sala "' + code + '" usada por "' + primeiroDono + '".\n\n' +
+                'CLIQUE:\n' +
+                '• OK para entrar mesmo assim (se for a mesma pessoa)\n' +
+                '• Cancelar para criar nova sala com numero (ex ' + code + '_02)';
+      if (confirm(msg)) {
+        finalizaLogin(nome, code, isProf);
+      } else {
+        acharProximoCodigo(code, function(codigoLivre) {
+          document.getElementById('l-code').value = codigoLivre;
+          toast('Codigo alterado para ' + codigoLivre + '. Clique Entrar novamente.', 'ok');
+        });
+      }
+    }
+  }, function(err) {
+    console.error('Erro ao verificar colisao:', err);
+    finalizaLogin(nome, code, isProf);
+  });
+}
+
+// Acha o proximo codigo livre adicionando _02, _03, ...
+function acharProximoCodigo(base, cb) {
+  var tentar = function(n) {
+    if (n > 99) { cb(base + '_' + Date.now().toString(36).toUpperCase()); return; }
+    var codigoCandidato = base + '_' + (n < 10 ? '0' + n : n);
+    window._db.ref('salas/' + codigoCandidato + '/coletas').limitToFirst(1).once('value', function(snap) {
+      if (!snap.exists()) { cb(codigoCandidato); }
+      else { tentar(n + 1); }
+    }, function(){ cb(codigoCandidato); });
+  };
+  tentar(2);
+}
+
+// Finaliza login: configura S, carrega coletas locais, abre pagina
+function finalizaLogin(nome, code, isProf) {
   var uidKey = 'sa_uid_' + code + '_' + nome.toLowerCase().replace(/\s/g, '_');
   var uid = localStorage.getItem(uidKey);
   if (!uid) {
@@ -983,108 +1082,219 @@ function exportJSON() {
 function exportDossie() {
   if (!myRecs.length) { toast('Nenhuma coleta para exportar', 'err'); return; }
 
-  var nome = (S.nome||'aluno').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  var linhas = ['Grupo,Valor'];
+  var nomeSlug = (S.nome||'aluno').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
 
-  // 1. Adiciona todas as coletas do aluno, agrupadas por SITUACAO
-  //    Isso permite comparar cada situacao local com a equivalente europeia
-  var porSituacao = {}; // {situacaoId: [{mean, min, max, ...}]}
+  // Agrupa coletas do aluno por situacao
+  var porSituacao = {};
   myRecs.forEach(function(r) {
+    if (typeof r.mean !== 'number') return;
     var sid = r.situacaoId || 0;
     if (!porSituacao[sid]) porSituacao[sid] = [];
     porSituacao[sid].push(r);
   });
 
-  // 2. Para cada situacao que o aluno coletou, gera o par de grupos:
-  //    - "Caceres_S<id>_nome" com os dB medidos pelo aluno
-  //    - "Europa_S<id>" com "observacoes equivalentes" derivadas da faixa EEA
-  var situacoesUsadas = [];
+  if (Object.keys(porSituacao).length === 0) {
+    toast('Nenhuma coleta com situacao classificada', 'err');
+    return;
+  }
+
+  // ==== CONSTROI CSV WIDE FORMAT ====
+  // Colunas: Pais, Cidade, Tipo_Ruido, Situacao, Situacao_Nome, Periodo, Replica, dB
+  // Linhas: 1) todas as coletas do aluno (Pais=Brasil, Cidade=Caceres)
+  //         2) 50 observacoes reconstruidas por combinacao cidade x situacao x tipo
+  var N_EUROPA = 50;  // observacoes por combinacao - bom para regressao
+  var header = 'Pais,Cidade,Tipo_Ruido,Situacao,Situacao_Nome,Periodo,Replica,dB';
+  var linhas = [header];
+
+  // 1. Coletas do aluno (Brasil / Caceres)
+  var situacoesUsadas = []; // lista de IDs
   Object.keys(porSituacao).forEach(function(sidKey) {
     var sid = parseInt(sidKey);
     var sit = getSituacao(sid);
     if (!sit) return;
-    situacoesUsadas.push(sit);
+    situacoesUsadas.push(sid);
     var recs = porSituacao[sidKey];
-
-    // Grupo local: as medicoes reais do aluno em Caceres
-    var grupoLocal = 'Caceres_S' + sid + '_' + nome;
-    recs.forEach(function(r) {
-      if (typeof r.mean === 'number') {
-        linhas.push(grupoLocal + ',' + r.mean.toFixed(1));
-      }
+    recs.forEach(function(r, idx) {
+      var periodoSimples = (r.periodo || '').split(' ')[0];  // ex "Manha" de "Manha (09h-11h)"
+      var linha = [
+        'Brasil',
+        'Caceres',
+        'local',  // tipo de ruido: "local" para coletas reais (sem classificacao por fonte)
+        'S' + sid,
+        '"' + sit.nome.replace(/"/g, '') + '"',
+        periodoSimples,
+        r.replica || (idx + 1),
+        r.mean.toFixed(1)
+      ].join(',');
+      linhas.push(linha);
     });
-
-    // Grupo europeu: gera N "observacoes equivalentes" baseadas na distribuicao
-    // da EEA ao redor do ponto medio da faixa de referencia da situacao.
-    // Usamos o mesmo N de coletas do aluno para balanceamento estatistico.
-    // O valor e amostrado uniformemente dentro da faixa +- 2 dB (simulando
-    // a variabilidade dentro de uma categoria agregada). Isto esta documentado
-    // no arquivo de metadados exportado junto.
-    var nEquiv = Math.max(recs.length, 10); // pelo menos 10 para o teste fazer sentido
-    var grupoEuropa = 'Europa_S' + sid;
-    var pmRef = sit.eea_ref_pm;
-    for (var i = 0; i < nEquiv; i++) {
-      // Uniform(pm-2, pm+2) - representa a faixa EEA (que ja e de 5 dB de largura)
-      var v = pmRef - 2 + Math.random() * 4;
-      linhas.push(grupoEuropa + ',' + v.toFixed(1));
-    }
   });
 
-  if (linhas.length === 1) { toast('Coletas sem situacao classificada', 'err'); return; }
+  // 2. Para cada situacao usada pelo aluno, amostra de cidades europeias
+  //    Para cada situacao, pega os tipos de ruido relevantes (SITUACAO_PARA_RUIDO)
+  //    Amostra de cada cidade que tem dados para aquele tipo
+  var totalEuropa = 0;
+  situacoesUsadas.forEach(function(sid) {
+    var sit = getSituacao(sid);
+    if (!sit) return;
+    var tiposRelevantes = SITUACAO_PARA_RUIDO[sid] || ['rodoviario'];
+    var usarLnight = (sit.horario === 'noturno');
+    var periodoLabel = usarLnight ? 'Noite' : 'Dia';
 
+    CIDADES.forEach(function(perfil) {
+      if (tiposRelevantes.indexOf(perfil.tipo) < 0) return;
+
+      var amostras = amostrarCidade(perfil, N_EUROPA, usarLnight);
+      if (amostras.length === 0) return;  // cidade sem dados para esse tipo/horario
+
+      amostras.forEach(function(valor, idx) {
+        var linha = [
+          perfil.pais,
+          perfil.cidade,
+          perfil.tipo,
+          'S' + sid,
+          '"' + sit.nome.replace(/"/g, '') + '"',
+          periodoLabel,
+          (idx + 1),
+          valor.toFixed(1)
+        ].join(',');
+        linhas.push(linha);
+        totalEuropa++;
+      });
+    });
+  });
+
+  if (totalEuropa === 0) {
+    toast('Sem dados europeus para as situacoes coletadas', 'err');
+    return;
+  }
+
+  // Baixa CSV principal
   var csv = linhas.join('\n');
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
-  a.download = 'dossie_' + nome + '_vs_europa.csv';
+  a.download = 'dossie_' + nomeSlug + '_wide.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 
-  // Tambem gera um arquivo de metadados explicativo
+  // Tambem gera versao simplificada (Grupo, Valor) para testes rapidos
+  // usando Pais+Situacao como Grupo
+  var csv2Linhas = ['Grupo,Valor'];
+  linhas.slice(1).forEach(function(l) {
+    var p = l.split(',');
+    // p = [Pais, Cidade, Tipo, Situacao, SituacaoNome, Periodo, Replica, dB]
+    var grupo = p[0] + '_' + p[3];  // ex "Brasil_S3" ou "Portugal_S3"
+    csv2Linhas.push(grupo + ',' + p[7]);
+  });
+  var csv2 = csv2Linhas.join('\n');
+  var a2 = document.createElement('a');
+  a2.href = URL.createObjectURL(new Blob([csv2], { type:'text/csv;charset=utf-8' }));
+  a2.download = 'dossie_' + nomeSlug + '_simples.csv';
+  document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+
+  // Metadados
   var metaLines = [
-    '# Dossie Estatistico: ' + S.nome + ' vs Europa',
+    '# Dossie Estatistico: ' + S.nome + ' vs Cidades Europeias',
     '# Gerado em: ' + new Date().toLocaleString('pt-BR'),
     '# Plataforma: Som Ambiental v2 - UNEMAT',
     '#',
-    '# ARQUIVO PRINCIPAL: dossie_' + nome + '_vs_europa.csv',
-    '# Formato: Grupo, Valor (compativel com Dossie Estatistico)',
+    '# DOIS ARQUIVOS GERADOS:',
     '#',
-    '# GRUPOS CRIADOS:',
+    '# 1. dossie_' + nomeSlug + '_wide.csv (WIDE FORMAT - recomendado)',
+    '#    Colunas: Pais, Cidade, Tipo_Ruido, Situacao, Situacao_Nome, Periodo, Replica, dB',
+    '#    Uso: ANOVA one-way (dB ~ Pais), ANOVA two-way (dB ~ Pais * Tipo_Ruido),',
+    '#         regressao (dB ~ Pais + Situacao + Periodo), t-test entre pares de paises.',
+    '#',
+    '# 2. dossie_' + nomeSlug + '_simples.csv (SIMPLIFICADO)',
+    '#    Colunas: Grupo, Valor  (Grupo = Pais_Situacao, ex "Brasil_S3")',
+    '#    Uso: compatibilidade com Dossie Estatistico em modelos simples.',
+    '#',
+    '# ==========================================================',
+    '# CONTEUDO:',
+    '# ==========================================================',
+    '#',
+    '# Coletas do aluno (Brasil / Caceres): ' + (linhas.length - 1 - totalEuropa) + ' observacoes reais',
+    '# Observacoes europeias reconstruidas: ' + totalEuropa + ' observacoes',
+    '# Total de linhas: ' + (linhas.length - 1),
+    '#',
+    '# SITUACOES INCLUIDAS:'
   ];
-  situacoesUsadas.forEach(function(sit) {
-    var n = porSituacao[sit.id].length;
-    metaLines.push('#   Caceres_S' + sit.id + '_' + nome + ': ' + n + ' coletas reais de ' + sit.nome);
-    metaLines.push('#   Europa_S' + sit.id + ': ' + Math.max(n, 10) + ' observacoes equivalentes derivadas da faixa EEA ' + sit.eea_ref_pm + ' dB');
+  situacoesUsadas.forEach(function(sid) {
+    var sit = getSituacao(sid);
+    var n = porSituacao[sid].length;
+    metaLines.push('#   S' + sid + ' (' + sit.nome + '): ' + n + ' coletas do aluno');
   });
   metaLines = metaLines.concat([
     '#',
+    '# CIDADES EUROPEIAS INCLUIDAS:',
+    '#   Portugal/Porto, Spain/Madrid, France/Paris, Italy/Rome, Germany/Berlin,',
+    '#   Netherlands/Amsterdam, Austria/Vienna, Poland/Warsaw, Sweden/Stockholm, Ireland/Dublin',
+    '#',
+    '# TIPOS DE RUIDO (por situacao):',
+    '#   S1 (quarto): rodoviario, aeroporto',
+    '#   S2 (domestico): rodoviario',
+    '#   S3 (educacional): rodoviario, ferroviario',
+    '#   S4 (rua residencial): rodoviario',
+    '#   S5 (rua comercial): rodoviario',
+    '#   S6 (praca): rodoviario, aeroporto',
+    '#   S7 (trafego intenso): rodoviario, aeroporto, ferroviario, industrial',
+    '#   S8 (aglomeracao): rodoviario, industrial',
+    '#',
+    '# ==========================================================',
     '# FONTE DOS DADOS EUROPEUS:',
+    '# ==========================================================',
     '# ' + EEA.meta.citacao,
     '# Dataset: Summary END 2022 (cutoff ' + EEA.meta.cutoff + ')',
-    '# Cobertura: ' + EEA.meta.n_aglomeracoes + ' aglomeracoes urbanas em ' + EEA.meta.n_paises + ' paises',
+    '# Cobertura: ' + EEA.meta.n_aglomeracoes + ' aglomeracoes em ' + EEA.meta.n_paises + ' paises',
     '#',
-    '# METODOLOGIA DE GERACAO DOS GRUPOS EUROPA:',
-    '# Cada faixa EEA (ex: 55-59 dB Lden) representa contagem populacional agregada.',
-    '# Para viabilizar comparacao estatistica grupo-a-grupo com as medicoes',
-    '# individuais do aluno, geramos "observacoes equivalentes" amostradas',
-    '# uniformemente dentro da faixa de referencia (ponto medio +- 2 dB).',
-    '# IMPORTANTE: os valores individuais do grupo "Europa_S*" nao sao medicoes',
-    '# diretas, sao reconstrucoes estatisticas da faixa agregada. O que importa',
-    '# cientificamente e: (a) o ponto medio da faixa, (b) a largura da faixa.',
-    '# Ambos sao preservados.',
+    '# METODOLOGIA DE RECONSTRUCAO DAS OBSERVACOES EUROPEIAS:',
+    '# A diretiva EEA fornece, para cada cidade, quantas pessoas estao expostas',
+    '# a cada faixa de dB (ex: Berlin tem 438.600 pessoas expostas a 55-59 dB de ruido',
+    '# de estrada). Para viabilizar comparacao estatistica com as medicoes pontuais',
+    '# do aluno, geramos ' + N_EUROPA + ' observacoes por combinacao cidade x tipo via:',
+    '#   (a) amostragem de faixa com probabilidade proporcional a populacao exposta',
+    '#       (metodo da CDF inversa);',
+    '#   (b) dentro da faixa sorteada, valor uniforme no intervalo [pm-2, pm+2].',
+    '# Isso preserva a distribuicao real de exposicao e permite testes estatisticos',
+    '# grupo-a-grupo. Os valores individuais nao sao medicoes diretas; sao amostras',
+    '# estatisticas representativas da distribuicao populacional real.',
     '#',
-    '# COMO USAR NO DOSSIE ESTATISTICO:',
-    '# 1. Abrir https://ernandes-sobreira.github.io/dossie (ou URL do Dossie)',
-    '# 2. Importar o arquivo dossie_' + nome + '_vs_europa.csv',
-    '# 3. Escolher teste (Modelo 1: Caceres vs Europa em uma situacao, ou',
-    '#    Modelo 2: ANOVA entre varias situacoes)',
-    '# 4. Interpretar com cuidado: as diferencas refletem a diferenca entre',
-    '#    Caceres-MT e a media de 435 cidades europeias.'
+    '# ==========================================================',
+    '# LIMITACOES IMPORTANTES (discutir com alunos):',
+    '# ==========================================================',
+    '# 1. As medicoes do aluno sao pontuais (30s) com microfone de celular;',
+    '#    ja o Lden europeu e media de 24h com equipamento calibrado.',
+    '# 2. Calibracao de microfone varia entre celulares: valores absolutos',
+    '#    tem erro de +-3 a 5 dB. Comparacoes relativas sao mais robustas.',
+    '# 3. A reconstrucao da distribuicao europeia preserva a media e a variancia',
+    '#    das faixas publicadas, mas nao captura variacao intra-dia.',
+    '# 4. O mapeamento situacao_local <-> tipo_ruido europeu e heuristico,',
+    '#    baseado em literatura. Pode ser ajustado para casos especificos.',
+    '#',
+    '# ==========================================================',
+    '# TESTES ESTATISTICOS SUGERIDOS:',
+    '# ==========================================================',
+    '# ANOVA one-way (Modelo 2 no Dossie):',
+    '#   dB por Pais (para uma situacao fixa) - sao os dB diferentes entre paises?',
+    '#',
+    '# ANOVA two-way:',
+    '#   dB por Pais x Tipo_Ruido - ha interacao entre pais e tipo de fonte sonora?',
+    '#',
+    '# Regressao linear:',
+    '#   dB ~ Situacao + Periodo - quanto cada fator contribui para o nivel medido?',
+    '#',
+    '# t-test:',
+    '#   Caceres vs cada cidade europeia separadamente, dentro de uma situacao.',
+    '#',
+    '# Kruskal-Wallis (se dados nao-normais):',
+    '#   alternativa nao-parametrica a ANOVA.'
   ]);
-  var a2 = document.createElement('a');
-  a2.href = URL.createObjectURL(new Blob([metaLines.join('\n')], { type:'text/plain;charset=utf-8' }));
-  a2.download = 'dossie_' + nome + '_metadados.txt';
-  document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
 
-  toast('CSV e metadados baixados! Abra o Dossie Estatistico.', 'ok');
+  var a3 = document.createElement('a');
+  a3.href = URL.createObjectURL(new Blob([metaLines.join('\n')], { type:'text/plain;charset=utf-8' }));
+  a3.download = 'dossie_' + nomeSlug + '_metadados.txt';
+  document.body.appendChild(a3); a3.click(); document.body.removeChild(a3);
+
+  toast('3 arquivos baixados: wide + simples + metadados. Abra no Dossie!', 'ok');
 }
 
 function importJSON(input) {
