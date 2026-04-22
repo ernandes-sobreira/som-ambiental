@@ -275,8 +275,9 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;font-size:1
         <input id="l-nome" type="text" placeholder="Nome completo" autocomplete="name">
       </div>
       <div class="lf">
-        <label>Codigo da sala</label>
-        <input id="l-code" type="text" placeholder="Ex: BIO2026" style="text-transform:uppercase;letter-spacing:2px;font-weight:700;font-size:20px">
+        <label>Codigo da sala (use seu nome: ex SOM_ANA)</label>
+        <input id="l-code" type="text" placeholder="Ex: SOM_ANA" style="text-transform:uppercase;letter-spacing:2px;font-weight:700;font-size:20px">
+        <div style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.4">Dica: cada aluno usa sua propria sala (ex SOM_ANA, SOM_JOAO). O professor pode acessar qualquer sala para ver as coletas.</div>
       </div>
       <div class="role-tgl">
         <button class="rbtn on" id="rbtn-a" onclick="setRole('a')">Sou aluno</button>
@@ -355,6 +356,55 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;font-size:1
         <option value="Noite alta (23h-00h)">Noite alta (23h-00h)</option>
       </select>
     </div>
+
+    <!-- ============ PERGUNTAS CONTEXTUAIS (comparacao com EEA) ============ -->
+    <div class="field" style="border:1.5px dashed #cbd5e1;border-radius:10px;padding:14px 12px;background:#f8fafc;margin-top:10px">
+      <div style="font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Contexto da coleta (para comparar com Europa)</div>
+
+      <label style="margin-top:0">Pessoas no raio de 10 metros</label>
+      <select id="col-pessoas">
+        <option value="">-- Selecione --</option>
+        <option value="0-2">0 a 2 (praticamente sozinho)</option>
+        <option value="3-10">3 a 10 (poucas pessoas)</option>
+        <option value="11-30">11 a 30 (grupo medio)</option>
+        <option value="31-100">31 a 100 (muitas pessoas)</option>
+        <option value="100+">Mais de 100 (aglomeracao)</option>
+      </select>
+
+      <label>Tipo de local</label>
+      <select id="col-tipo">
+        <option value="">-- Selecione --</option>
+        <option value="residencial">Residencial (casa, apartamento, quarto)</option>
+        <option value="educacional">Educacional (escola, UNEMAT, biblioteca)</option>
+        <option value="comercial">Comercial (loja, mercado, restaurante)</option>
+        <option value="via_residencial">Rua residencial (bairro tranquilo)</option>
+        <option value="via_arterial">Via arterial (avenida, rodovia, BR)</option>
+        <option value="espaco_aberto">Praca, parque ou area aberta</option>
+        <option value="aglomeracao">Local com aglomeracao (evento, shopping)</option>
+      </select>
+
+      <label>Fluxo de veiculos nos 30s da coleta</label>
+      <select id="col-trafego">
+        <option value="">-- Selecione --</option>
+        <option value="nenhum">Nenhum veiculo</option>
+        <option value="poucos">Poucos (1 a 3 veiculos)</option>
+        <option value="moderado">Moderado (4 a 15 veiculos)</option>
+        <option value="intenso">Intenso (fluxo continuo)</option>
+      </select>
+
+      <label>Fonte dominante do som</label>
+      <select id="col-fonte">
+        <option value="">-- Selecione --</option>
+        <option value="silencio">Silencio relativo</option>
+        <option value="vozes">Vozes humanas</option>
+        <option value="trafego">Trafego de veiculos</option>
+        <option value="construcao">Construcao / obra</option>
+        <option value="natureza">Natureza (vento, agua, passaros)</option>
+        <option value="musica">Musica / som mecanico</option>
+        <option value="mista">Mistura de varias fontes</option>
+      </select>
+    </div>
+    <!-- ================ FIM PERGUNTAS CONTEXTUAIS ================ -->
     <div class="row2">
       <div class="field"><label>Replica n.</label><input id="col-rep" type="number" min="1" value="1"></div>
       <div class="field"><label>Duracao (s)</label><input id="col-dur" type="number" min="5" max="300" value="30"></div>
@@ -386,6 +436,7 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;font-size:1
       </div>
       <button class="btn btn-g" onclick="sendPending()" style="margin-bottom:8px">Enviar para a turma</button>
       <button class="btn btn-ghost" onclick="exportJSON()">Baixar meus dados (.json)</button>
+      <button class="btn btn-ghost" onclick="exportDossie()" style="margin-top:6px;background:#ecfdf5;border-color:#10b981;color:#065f46">Baixar para Dossie Estatistico (.csv) + Europa</button>
       <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:5px;line-height:1.5">Se o envio nao funcionar, baixe e envie para o professor.</div>
     </div>
   </div>
@@ -395,6 +446,7 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;font-size:1
     <div id="action-minhas" style="display:none;margin-bottom:12px">
       <button class="btn btn-g" onclick="sendPending()" style="margin-bottom:8px">Enviar para a turma</button>
       <button class="btn btn-ghost" onclick="exportJSON()">Baixar meus dados (.json)</button>
+      <button class="btn btn-ghost" onclick="exportDossie()" style="margin-top:6px;background:#ecfdf5;border-color:#10b981;color:#065f46">Baixar para Dossie Estatistico (.csv) + Europa</button>
     </div>
     <div id="my-list">
       <div class="empty-st" id="my-empty">
@@ -499,6 +551,65 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;font-size:1
 
 <script>
 var PROF_PASS_KEY = "SOBREIRA";
+// ===== BUNDLE EEA (European Environment Agency) =====
+// Dados reais da Diretiva 2002/49/EC - 435 aglomeracoes urbanas, 32 paises
+var EEA = {"meta":{"fonte":"European Environment Agency (EEA) - Environmental Noise Directive 2002/49/EC","ano":"2022","cutoff":"2024-11-18","n_aglomeracoes":435,"n_paises":32,"citacao":"EEA (2024). Population exposure to noise from different sources in Europe - Summary END 2022. European Environment Agency. https://www.eea.europa.eu"},"lden_faixas":[{"pm":47,"label":"45-49","pessoas":2844900,"pct":4.49},{"pm":52,"label":"50-54","pessoas":4165000,"pct":6.58},{"pm":57,"label":"55-59","pessoas":24072200,"pct":38.01},{"pm":62,"label":"60-64","pessoas":17869600,"pct":28.22},{"pm":67,"label":"65-69","pessoas":10504300,"pct":16.59},{"pm":72,"label":"70-74","pessoas":3471200,"pct":5.48},{"pm":77,"label":"75+","pessoas":398700,"pct":0.63}],"lnight_faixas":[{"pm":52,"label":"50-54","pessoas":3127100,"pct":7.18},{"pm":57,"label":"55-59","pessoas":5192400,"pct":11.92},{"pm":62,"label":"60-64","pessoas":18844300,"pct":43.27},{"pm":67,"label":"65-69","pessoas":11665600,"pct":26.79},{"pm":72,"label":"70+","pessoas":4723000,"pct":10.84}],"situacoes":[{"id":1,"nome":"Quarto noturno residencial","db_min":25,"db_max":45,"horario":"noturno","eea_ref_pm":52,"cor":"#6366f1","icone":"🌙","desc":"Ambiente para dormir. Comparavel a exposicao noturna (Lnight) residencial na Europa."},{"id":2,"nome":"Ambiente domestico diurno","db_min":35,"db_max":60,"horario":"diurno","eea_ref_pm":52,"cor":"#10b981","icone":"🏠","desc":"Sala, cozinha, uso normal da casa. Comparavel a Lden baixo residencial europeu."},{"id":3,"nome":"Sala de aula ou ambiente educacional","db_min":40,"db_max":75,"horario":"diurno","eea_ref_pm":57,"cor":"#0891b2","icone":"📚","desc":"Ambiente de ensino com ou sem alunos. Comparavel a Lden medio-baixo europeu."},{"id":4,"nome":"Rua residencial tranquila","db_min":45,"db_max":65,"horario":"diurno","eea_ref_pm":57,"cor":"#059669","icone":"🏘️","desc":"Bairro residencial, trafego leve. Comparavel a rua secundaria europeia."},{"id":5,"nome":"Rua comercial com trafego","db_min":55,"db_max":75,"horario":"diurno","eea_ref_pm":62,"cor":"#f59e0b","icone":"🛒","desc":"Rua com comercio e trafego moderado. Comparavel a via urbana principal europeia."},{"id":6,"nome":"Praca ou area aberta de convivencia","db_min":40,"db_max":70,"horario":"diurno","eea_ref_pm":57,"cor":"#7c3aed","icone":"🌳","desc":"Espaco publico aberto. Comparavel a area urbana diurna media europeia."},{"id":7,"nome":"Trafego intenso ou rodovia","db_min":65,"db_max":90,"horario":"diurno","eea_ref_pm":67,"cor":"#dc2626","icone":"🚗","desc":"Avenida arterial, rodoviaria, cruzamento intenso. Comparavel a via arterial europeia."},{"id":8,"nome":"Aglomeracao (mercado, shopping, evento)","db_min":55,"db_max":85,"horario":"diurno","eea_ref_pm":62,"cor":"#db2777","icone":"👥","desc":"Local com muitas pessoas em ambiente fechado ou semi-aberto. Comparavel a aglomeracao urbana densa."}]};
+
+// Classifica uma coleta em uma das 8 situacoes EEA a partir das respostas contextuais
+function classificarSituacao(ctx) {
+  // ctx: {pessoas, tipo, trafego, fonte, periodo, env}
+  var isNoturno = (ctx.periodo || '').toLowerCase().indexOf('madrugada') >= 0 ||
+                  (ctx.periodo || '').toLowerCase().indexOf('noite alta') >= 0 ||
+                  (ctx.periodo || '').toLowerCase().indexOf('noite (20') >= 0;
+
+  // Situacao 1: Quarto noturno
+  if (isNoturno && (ctx.tipo === 'residencial' || ctx.env === 'Quarto')) return 1;
+
+  // Situacao 7: trafego intenso ou rodovia
+  if (ctx.tipo === 'via_arterial' || ctx.trafego === 'intenso') return 7;
+
+  // Situacao 8: aglomeracao
+  if (ctx.tipo === 'aglomeracao' || ctx.pessoas === '100+') return 8;
+
+  // Situacao 5: rua comercial com trafego
+  if (ctx.tipo === 'comercial' && (ctx.trafego === 'moderado' || ctx.trafego === 'intenso')) return 5;
+
+  // Situacao 4: rua residencial tranquila
+  if (ctx.tipo === 'via_residencial') return 4;
+
+  // Situacao 6: praca ou area aberta
+  if (ctx.tipo === 'espaco_aberto') return 6;
+
+  // Situacao 3: sala de aula educacional
+  if (ctx.tipo === 'educacional' || ctx.env === 'Sala de Aula' || ctx.env === 'Biblioteca' || ctx.env === 'Laboratorio') return 3;
+
+  // Situacao 2: ambiente domestico diurno (default residencial diurno)
+  if (ctx.tipo === 'residencial') return 2;
+
+  // Default: situacao 6 (espaco publico medio)
+  return 6;
+}
+
+function getSituacao(id) {
+  for (var i=0; i<EEA.situacoes.length; i++) if (EEA.situacoes[i].id === id) return EEA.situacoes[i];
+  return null;
+}
+
+// Qual faixa EEA (ponto medio) corresponde a um valor de dB medido
+function faixaEEAdeDB(db, periodo) {
+  var isNoturno = (periodo || '').toLowerCase().indexOf('madrugada') >= 0 ||
+                  (periodo || '').toLowerCase().indexOf('noite alta') >= 0 ||
+                  (periodo || '').toLowerCase().indexOf('noite (20') >= 0;
+  var faixas = isNoturno ? EEA.lnight_faixas : EEA.lden_faixas;
+  // Acha faixa cujo ponto medio esta mais proximo
+  var best = faixas[0]; var bestDiff = Math.abs(db - best.pm);
+  for (var i=1; i<faixas.length; i++) {
+    var d = Math.abs(db - faixas[i].pm);
+    if (d < bestDiff) { best = faixas[i]; bestDiff = d; }
+  }
+  return { faixa: best, periodo_tipo: isNoturno ? 'Lnight' : 'Lden' };
+}
+
 var S = { nome:'', sala:'', isProf:false, uid:'' };
 var myRecs = [];
 var allRecs = [];
@@ -785,13 +896,25 @@ function saveMic() {
 
 function pushRec(extra) {
   var now = new Date();
+  var ctxPessoas = (document.getElementById('col-pessoas') || {}).value || '';
+  var ctxTipo = (document.getElementById('col-tipo') || {}).value || '';
+  var ctxTrafego = (document.getElementById('col-trafego') || {}).value || '';
+  var ctxFonte = (document.getElementById('col-fonte') || {}).value || '';
+  var periodoVal = document.getElementById('col-periodo').value || getPeriodo();
+  var envVal = document.getElementById('col-env').value;
+  var situacaoId = classificarSituacao({
+    pessoas: ctxPessoas, tipo: ctxTipo, trafego: ctxTrafego,
+    fonte: ctxFonte, periodo: periodoVal, env: envVal
+  });
   var rec = {
     nome:S.nome, sala:S.sala, uid:S.uid,
     date:now.toISOString().split('T')[0],
     time:now.toTimeString().slice(0,5),
-    env:document.getElementById('col-env').value,
-    periodo:document.getElementById('col-periodo').value || getPeriodo(),
+    env:envVal,
+    periodo:periodoVal,
     replica:parseInt(document.getElementById('col-rep').value) || 1,
+    ctxPessoas:ctxPessoas, ctxTipo:ctxTipo, ctxTrafego:ctxTrafego, ctxFonte:ctxFonte,
+    situacaoId:situacaoId,
     savedAt:Date.now(), sent:false,
     rid:'r_' + Date.now() + '_' + Math.random().toString(36).slice(2)
   };
@@ -804,7 +927,8 @@ function pushRec(extra) {
   if (rec.env === 'Outro') document.getElementById('col-outro').value = '';
   renderMyList();
   updateSendArea();
-  toast('Coleta salva!', 'ok');
+  var sit = getSituacao(situacaoId);
+  toast('Coleta salva! ' + (sit ? (sit.icone + ' ' + sit.nome) : ''), 'ok');
   sendPending();
 }
 
@@ -849,6 +973,118 @@ function exportJSON() {
   a.download = 'som_' + S.sala + '_' + nome + '.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('Arquivo baixado! Envie para o professor.', 'ok');
+}
+
+// ============================================================
+// EXPORTA CSV NO FORMATO DO DOSSIE ESTATISTICO
+// Formato: Grupo, Valor - compativel com index__6_.html (Dossie)
+// Inclui: coletas do aluno + benchmark europeu equivalente
+// ============================================================
+function exportDossie() {
+  if (!myRecs.length) { toast('Nenhuma coleta para exportar', 'err'); return; }
+
+  var nome = (S.nome||'aluno').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  var linhas = ['Grupo,Valor'];
+
+  // 1. Adiciona todas as coletas do aluno, agrupadas por SITUACAO
+  //    Isso permite comparar cada situacao local com a equivalente europeia
+  var porSituacao = {}; // {situacaoId: [{mean, min, max, ...}]}
+  myRecs.forEach(function(r) {
+    var sid = r.situacaoId || 0;
+    if (!porSituacao[sid]) porSituacao[sid] = [];
+    porSituacao[sid].push(r);
+  });
+
+  // 2. Para cada situacao que o aluno coletou, gera o par de grupos:
+  //    - "Caceres_S<id>_nome" com os dB medidos pelo aluno
+  //    - "Europa_S<id>" com "observacoes equivalentes" derivadas da faixa EEA
+  var situacoesUsadas = [];
+  Object.keys(porSituacao).forEach(function(sidKey) {
+    var sid = parseInt(sidKey);
+    var sit = getSituacao(sid);
+    if (!sit) return;
+    situacoesUsadas.push(sit);
+    var recs = porSituacao[sidKey];
+
+    // Grupo local: as medicoes reais do aluno em Caceres
+    var grupoLocal = 'Caceres_S' + sid + '_' + nome;
+    recs.forEach(function(r) {
+      if (typeof r.mean === 'number') {
+        linhas.push(grupoLocal + ',' + r.mean.toFixed(1));
+      }
+    });
+
+    // Grupo europeu: gera N "observacoes equivalentes" baseadas na distribuicao
+    // da EEA ao redor do ponto medio da faixa de referencia da situacao.
+    // Usamos o mesmo N de coletas do aluno para balanceamento estatistico.
+    // O valor e amostrado uniformemente dentro da faixa +- 2 dB (simulando
+    // a variabilidade dentro de uma categoria agregada). Isto esta documentado
+    // no arquivo de metadados exportado junto.
+    var nEquiv = Math.max(recs.length, 10); // pelo menos 10 para o teste fazer sentido
+    var grupoEuropa = 'Europa_S' + sid;
+    var pmRef = sit.eea_ref_pm;
+    for (var i = 0; i < nEquiv; i++) {
+      // Uniform(pm-2, pm+2) - representa a faixa EEA (que ja e de 5 dB de largura)
+      var v = pmRef - 2 + Math.random() * 4;
+      linhas.push(grupoEuropa + ',' + v.toFixed(1));
+    }
+  });
+
+  if (linhas.length === 1) { toast('Coletas sem situacao classificada', 'err'); return; }
+
+  var csv = linhas.join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  a.download = 'dossie_' + nome + '_vs_europa.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+  // Tambem gera um arquivo de metadados explicativo
+  var metaLines = [
+    '# Dossie Estatistico: ' + S.nome + ' vs Europa',
+    '# Gerado em: ' + new Date().toLocaleString('pt-BR'),
+    '# Plataforma: Som Ambiental v2 - UNEMAT',
+    '#',
+    '# ARQUIVO PRINCIPAL: dossie_' + nome + '_vs_europa.csv',
+    '# Formato: Grupo, Valor (compativel com Dossie Estatistico)',
+    '#',
+    '# GRUPOS CRIADOS:',
+  ];
+  situacoesUsadas.forEach(function(sit) {
+    var n = porSituacao[sit.id].length;
+    metaLines.push('#   Caceres_S' + sit.id + '_' + nome + ': ' + n + ' coletas reais de ' + sit.nome);
+    metaLines.push('#   Europa_S' + sit.id + ': ' + Math.max(n, 10) + ' observacoes equivalentes derivadas da faixa EEA ' + sit.eea_ref_pm + ' dB');
+  });
+  metaLines = metaLines.concat([
+    '#',
+    '# FONTE DOS DADOS EUROPEUS:',
+    '# ' + EEA.meta.citacao,
+    '# Dataset: Summary END 2022 (cutoff ' + EEA.meta.cutoff + ')',
+    '# Cobertura: ' + EEA.meta.n_aglomeracoes + ' aglomeracoes urbanas em ' + EEA.meta.n_paises + ' paises',
+    '#',
+    '# METODOLOGIA DE GERACAO DOS GRUPOS EUROPA:',
+    '# Cada faixa EEA (ex: 55-59 dB Lden) representa contagem populacional agregada.',
+    '# Para viabilizar comparacao estatistica grupo-a-grupo com as medicoes',
+    '# individuais do aluno, geramos "observacoes equivalentes" amostradas',
+    '# uniformemente dentro da faixa de referencia (ponto medio +- 2 dB).',
+    '# IMPORTANTE: os valores individuais do grupo "Europa_S*" nao sao medicoes',
+    '# diretas, sao reconstrucoes estatisticas da faixa agregada. O que importa',
+    '# cientificamente e: (a) o ponto medio da faixa, (b) a largura da faixa.',
+    '# Ambos sao preservados.',
+    '#',
+    '# COMO USAR NO DOSSIE ESTATISTICO:',
+    '# 1. Abrir https://ernandes-sobreira.github.io/dossie (ou URL do Dossie)',
+    '# 2. Importar o arquivo dossie_' + nome + '_vs_europa.csv',
+    '# 3. Escolher teste (Modelo 1: Caceres vs Europa em uma situacao, ou',
+    '#    Modelo 2: ANOVA entre varias situacoes)',
+    '# 4. Interpretar com cuidado: as diferencas refletem a diferenca entre',
+    '#    Caceres-MT e a media de 435 cidades europeias.'
+  ]);
+  var a2 = document.createElement('a');
+  a2.href = URL.createObjectURL(new Blob([metaLines.join('\n')], { type:'text/plain;charset=utf-8' }));
+  a2.download = 'dossie_' + nome + '_metadados.txt';
+  document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+
+  toast('CSV e metadados baixados! Abra o Dossie Estatistico.', 'ok');
 }
 
 function importJSON(input) {
@@ -975,8 +1211,68 @@ function renderAResult() {
   var data = allRecs.length ? allRecs : myRecs;
   if (!data.length) { empty.style.display='block'; body.style.display='none'; return; }
   empty.style.display = 'none'; body.style.display = 'block';
-  body.innerHTML = buildAnalise(data);
+  body.innerHTML = buildComparaEuropa(data) + buildAnalise(data);
   initCharts(body);
+}
+
+// Bloco de comparacao com Europa (EEA)
+// Mostra em quais faixas as coletas caem e compara com distribuicao europeia
+function buildComparaEuropa(data) {
+  // Agrupa coletas por faixa EEA (usando ponto medio)
+  var pontosMed = EEA.lden_faixas.map(function(f) { return f.pm; });
+  var contagem = {};
+  var totalValidas = 0;
+  data.forEach(function(r) {
+    if (typeof r.mean !== 'number') return;
+    var f = faixaEEAdeDB(r.mean, r.periodo);
+    var pm = f.faixa.pm;
+    contagem[pm] = (contagem[pm] || 0) + 1;
+    totalValidas++;
+  });
+  if (!totalValidas) return '';
+
+  // Calcula % local por faixa e compara com % europeu
+  var linhas = '';
+  EEA.lden_faixas.forEach(function(f) {
+    var nLocal = contagem[f.pm] || 0;
+    var pctLocal = 100 * nLocal / totalValidas;
+    var pctEuropa = f.pct;
+    var diff = pctLocal - pctEuropa;
+    var sinal = diff > 0.5 ? 'acima' : (diff < -0.5 ? 'abaixo' : 'similar');
+    var cor = diff > 0.5 ? '#dc2626' : (diff < -0.5 ? '#059669' : '#64748b');
+    var maxPct = Math.max(pctLocal, pctEuropa, 1);
+    linhas += '<div style="display:grid;grid-template-columns:70px 1fr 60px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9">' +
+      '<div style="font-weight:600;font-size:13px;color:#334155">' + f.label + ' dB</div>' +
+      '<div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#0ea5e9">' +
+          '<span style="width:46px;text-align:right">Caceres:</span>' +
+          '<div style="background:#0ea5e9;height:10px;width:' + (pctLocal/maxPct*100).toFixed(0) + '%;min-width:' + (pctLocal>0?'6px':'0') + ';border-radius:4px"></div>' +
+          '<span style="font-weight:600">' + pctLocal.toFixed(1) + '% (n=' + nLocal + ')</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#7c3aed;margin-top:3px">' +
+          '<span style="width:46px;text-align:right">Europa:</span>' +
+          '<div style="background:#7c3aed;height:10px;width:' + (pctEuropa/maxPct*100).toFixed(0) + '%;border-radius:4px"></div>' +
+          '<span style="font-weight:600">' + pctEuropa.toFixed(1) + '%</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;font-weight:700;color:' + cor + ';text-align:right">' + sinal + '</div>' +
+      '</div>';
+  });
+
+  var h = '<div class="card" style="background:linear-gradient(135deg,#f0f9ff,#faf5ff);border:1px solid #e0e7ff;padding:16px 16px">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+      '<span style="font-size:18px">🌍</span>' +
+      '<div>' +
+        '<div class="card-t" style="margin:0">Comparacao com benchmark europeu</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px">Distribuicao das suas coletas por faixa de dB vs. ' + EEA.meta.n_aglomeracoes + ' aglomeracoes urbanas europeias</div>' +
+      '</div>' +
+    '</div>' +
+    linhas +
+    '<div style="font-size:10px;color:#94a3b8;margin-top:8px;line-height:1.5;padding-top:8px;border-top:1px solid #e2e8f0">' +
+    'Fonte: ' + EEA.meta.fonte + ' (dados ' + EEA.meta.ano + '). Benchmark europeu representa % de pessoas expostas a cada faixa de ruido de estrada (Lden/Lnight). Suas coletas sao medicoes pontuais; a comparacao e ilustrativa.' +
+    '</div>' +
+    '</div>';
+  return h;
 }
 
 function renderPainel() {
